@@ -36,4 +36,10 @@ npm install
 
 # Build the plugin
 npm run build
+
+# Run the development environment
+npm run dev
+
+# Open the development webserver that refreshes on saving.
+npm run serve
 ``` 
