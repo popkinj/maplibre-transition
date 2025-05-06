@@ -1,12 +1,15 @@
 {
   "name": "maplibre-transition",
   "version": "0.1.0",
-  "description": "A utility plugin for Maplibre GL JS",
+  "description": "A MapLibre GL JS plugin for smooth transitions between map styles.",
+  "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c rollup.config.mjs",
+    "dev": "rollup -c rollup.config.mjs -w",
+    "serve": "vite",
     "test": "jest"
   },
   "keywords": [
@@ -24,6 +27,9 @@
     "typescript": "^5.0.0",
     "rollup": "^3.0.0",
     "@rollup/plugin-typescript": "^11.0.0",
-    "@rollup/plugin-terser": "^0.4.0"
+    "@rollup/plugin-terser": "^0.4.0",
+    "vite": "^5.0.0",
+    "maplibre-gl": "^3.0.0",
+    "tslib": "^2.6.0"
   }
 } 
