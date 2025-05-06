@@ -1,0 +1,13 @@
+# Temporary Files
+*.log
+*.swp
+*.zip
+*.tgz
+*.gz
+~*
+
+# Dependencies
+node_modules
+
+# Secrets
+.env
