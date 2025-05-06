@@ -1,0 +1,29 @@
+{
+  "name": "maplibre-transition",
+  "version": "0.1.0",
+  "description": "A utility plugin for Maplibre GL JS",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "jest"
+  },
+  "keywords": [
+    "maplibre",
+    "maplibre-gl-js",
+    "map",
+    "gis"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "maplibre-gl": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "rollup": "^3.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@rollup/plugin-terser": "^0.4.0"
+  }
+} 
