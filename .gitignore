@@ -1,4 +1,5 @@
 # Temporary Files
+dist
 *.log
 *.swp
 *.zip
