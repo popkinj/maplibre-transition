@@ -2,9 +2,11 @@ import { Map } from "maplibre-gl";
 
 interface TransitionOptions {
   duration?: number;
-  ease?: (t: number) => number;
+  ease?: string;
   delay?: number;
+  paint?: Record<string, any>;
   onComplete?: () => void;
+  onStart?: () => void;
 }
 declare module "maplibre-gl" {
   interface Map {

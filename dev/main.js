@@ -50,6 +50,9 @@ map.on("load", async () => {
       onComplete: () => {
         console.log("Transition complete");
       },
+      onStart: () => {
+        console.log("Transition started");
+      },
     };
 
     map.T(e.features[0].layer, options);
