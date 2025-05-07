@@ -42,43 +42,53 @@ map.on('load', async () => {
     paint: {
         // 'fill-color': '#088',
       'fill-color': ['coalesce', ['get', 'color'], '#088'],
+      'fill-opacity': 0.5,
     //   'fill-color': [
     //     'case', 
     //     ['==', ['get', 'name'], provinces[0].name],
     //     provinces[0].color,
     //     '#088'
     //   ],
-      'fill-opacity': [
-        'case',
-        ['boolean', ['feature-state', 'hover'], false],
-        1.0,
-        0.4
-      ],
+      // 'fill-opacity': [
+      //   'case',
+      //   ['boolean', ['feature-state', 'hover'], false],
+      //   1.0,
+      //   0.4
+      // ],
       'fill-outline-color': '#000'
     }
   });
 
+  map.on('click', 'provinces-fill', (e) => {
+    map.setFeatureState(
+      { source: 'provinces', id: e.features[0].id },
+      { 'fill-opacity': 1 }
+    );
+    map.setPaintProperty('provinces-fill', 'fill-opacity', ['coalesce', ['feature-state', 'fill-opacity'], 0.1]);
+    console.log('Click', e.features[0]);
+  });
+
   // Add hover interaction
   map.on('mousemove', 'provinces-fill', (e) => {
-    console.log('Mousemove', e.features[0]);
+    // console.log('Mousemove', e.features[0]);
     const source = e.features[0].source;
     const layer = e.features[0].layer;
     const features = map.querySourceFeatures(e.features[0].source);
 
-    features.forEach(feature => {
-      map.setFeatureState(
-        { source: 'provinces', id: feature.id },
-        { hover: false }
-      );
-    });
-    map.setFeatureState(
-      { source: 'provinces', id: e.features[0].id },
-      { hover: true }
-    );
+    // features.forEach(feature => {
+    //   map.setFeatureState(
+    //     { source: 'provinces', id: feature.id },
+    //     { hover: false }
+    //   );
+    // });
+    // map.setFeatureState(
+    //   { source: 'provinces', id: e.features[0].id },
+    //   { hover: true }
+    // );
   });
 
   map.on('mouseleave', 'provinces-fill', () => {
-    console.log('Mouseleave');
+    // console.log('Mouseleave');
   });
 
   // Test the plugin
