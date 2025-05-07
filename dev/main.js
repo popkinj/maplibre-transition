@@ -43,16 +43,9 @@ map.on("load", async () => {
     const options = {
       duration: 1000,
       ease: 'linear',
-      delay: 0,
       paint: {
         "fill-opacity": 1,
-      },
-      onComplete: () => {
-        console.log("Transition complete");
-      },
-      onStart: () => {
-        console.log("Transition started");
-      },
+      }
     };
 
     map.T(e.features[0].layer, options);

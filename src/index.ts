@@ -20,7 +20,7 @@ declare module "maplibre-gl" {
 export function init(map: Map): void {
   // Add the T namespace to the map object
   map.T = Object.assign(
-    function (layer: any, options?: TransitionOptions) {
+    function (feature: any, options?: TransitionOptions) {
       console.log("Hello from map.T!");
       if (options) {
         console.log(options);
