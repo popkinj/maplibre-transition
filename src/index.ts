@@ -13,24 +13,71 @@ interface TransitionOptions {
 declare module "maplibre-gl" {
   interface Map {
     T: {
-      (layer: any, options?: TransitionOptions): void;
+      (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
     };
   }
 }
 
+function animateFeature(map: Map, feature: any, keyName: string) {
+  const now = Date.now();
+
+  // Get the transition from our set
+  const transition = Array.from(map.T.transitions).find((t) => t[keyName]);
+  if (!transition) return;
+
+  const scale = transition[keyName];
+  const endTime = scale.domain()[1];
+  if (now >= endTime) {
+    // Transition is complete - set final value and remove from transitions
+    map.setFeatureState(
+      { source: "provinces", id: feature.id },
+      { fillOpacity: scale.range()[1] }
+    );
+    map.T.transitions.delete(transition);
+  } else {
+    // Update current value
+    map.setFeatureState(
+      { source: "provinces", id: feature.id },
+      { fillOpacity: scale(now) }
+    );
+
+    // Schedule the next tick
+    requestAnimationFrame(() => animateFeature(map, feature, keyName));
+  }
+}
+
 export function init(map: Map): void {
-  // Add the T namespace to the map object
   map.T = Object.assign(
     function (feature: any, options?: TransitionOptions) {
-      console.log('transitioning feature', feature);
-
-      const {duration = 1000, delay = 0} = options || {};
-
+      const { duration = 1000, delay = 0 } = options || {};
       const now = Date.now() + delay;
 
-      const oldOpacity = feature.paint['fill-opacity'] || 0.1;
-      const newOpacity = options?.paint?.['fill-opacity'] || 1;
+      const currentOpacity = map.getPaintProperty(
+        feature.layer.id,
+        "fill-opacity"
+      );
+
+      let oldOpacity; // default
+
+      if (Array.isArray(currentOpacity)) {
+        // If it's an array, take the third value (default value in coalesce)
+        oldOpacity = currentOpacity[2] || 0.1;
+      } else if (typeof currentOpacity === "number") {
+        // If it's a number, use it directly
+        oldOpacity = currentOpacity;
+      } else {
+        oldOpacity = 0.1;
+      }
+
+      // Set up the layer to use feature state for opacity
+      map.setPaintProperty(feature.layer.id, "fill-opacity", [
+        "coalesce",
+        ["feature-state", "fillOpacity"],
+        oldOpacity,
+      ]);
+
+      const newOpacity = options?.paint?.["fill-opacity"] || 1;
 
       const scale = scaleLinear()
         .domain([now, now + duration])
@@ -39,25 +86,22 @@ export function init(map: Map): void {
       const wrappedScale = (t: number) => {
         const progress = (t - now) / duration;
         const easedProgress = easeLinear(Math.min(Math.max(progress, 0), 1));
-        return oldOpacity + (easedProgress * oldOpacity);
-      }
+        return oldOpacity + easedProgress * (newOpacity - oldOpacity);
+      };
 
       Object.assign(wrappedScale, scale);
 
-      map.setPaintProperty(feature.id, 'fill-opacity', [
-        "coalesce",
-        ["feature-state", "fillOpacity"],
-        oldOpacity,
-      ]);
-
       // Set the initial feature state
-      map.setFeatureState(feature, {fillOpacity: oldOpacity});
+      map.setFeatureState(feature, { fillOpacity: oldOpacity });
 
-      const keyName = feature.id + '-fill-opacity';
-      map.T.transitions.add({[keyName]: wrappedScale});
+      // Use feature ID instead of layer ID for the key
+      const keyName = feature.layer.id + "-fill-opacity";
+      map.T.transitions.add({ [keyName]: wrappedScale });
 
+      // Start the animation
+      animateFeature(map, feature, keyName);
     },
-    { transitions: new Set() } // Store the transitions in a set
+    { transitions: new Set() }
   );
 }
 

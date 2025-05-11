@@ -1,7 +1,5 @@
 import maplibregl from "maplibre-gl";
 import MaplibreTransition from "../src/index.ts";
-import { scaleLinear } from "d3-scale";
-import { easeLinear } from "d3-ease";
 
 const map = new maplibregl.Map({
   container: "map",
@@ -29,17 +27,17 @@ map.on("load", async () => {
 
   // Add a fill layer
   map.addLayer({
-    id: "provinces-fill",
+    id: "provinces",
     type: "fill",
     source: "provinces",
     paint: {
       "fill-color": "#088",
       "fill-opacity": 0.1,
-      "fill-outline-color": "#000",
+      "fill-outline-color": "#000"
     },
   });
 
-  map.on("click", "provinces-fill", (e) => {
+  map.on("click", "provinces", (e) => {
     const options = {
       duration: 1000,
       ease: 'linear',
@@ -49,18 +47,21 @@ map.on("load", async () => {
       }
     };
 
-    map.T(e.features[0].layer, options);
+    // Transition the feature
+    map.T(e.features[0], options);
   });
 
   // Add hover interaction
-  map.on("mousemove", "provinces-fill", (e) => {
+  map.on("mousemove", "provinces", (e) => {
     const source = e.features[0].source;
     const layer = e.features[0].layer;
     const features = map.querySourceFeatures(e.features[0].source);
-    console.log(layer.paint['fill-opacity']);
+    // console.log('layer', layer.paint);
+    // console.log('feature state', e.features[0].state);
+    // console.log('layer style', map.getLayer(layer.id).paint['fill-opacity']);
   });
 
-  map.on("mouseleave", "provinces-fill", () => {
-    console.log('Mouseleave');
+  map.on("mouseleave", "provinces", () => {
+    // console.log('Mouseleave');
   });
 });
