@@ -43,39 +43,13 @@ map.on("load", async () => {
     const options = {
       duration: 1000,
       ease: 'linear',
+      delay: 0,
       paint: {
         "fill-opacity": 1,
       }
     };
 
     map.T(e.features[0].layer, options);
-    const layer = e.features[0].layer;
-    const oldOpacity = layer.paint["fill-opacity"] || 0.1;
-    const newOpacity = 1
-
-    const now = Date.now();
-    const duration = 1000;
-
-    const scale = scaleLinear()
-      .domain([now, now + 1000])
-      .range([oldOpacity, newOpacity]);
-    
-    // Create a wrapped scale that applies the easing function
-    const wrappedScale = (t) => {
-      const progress = (t - now) / duration;
-      const easedProgress = easeLinear(Math.min(Math.max(progress, 0), 1));
-      return oldOpacity + (easedProgress * oldOpacity);
-    }
-
-    // Add all the other scale stuff to the wrapped scale
-    Object.assign(wrappedScale, scale)
-
-    // This makes sure the layer is ready for the transition
-    map.setPaintProperty("provinces-fill", "fill-opacity", [
-      "coalesce",
-      ["feature-state", "fillOpacity"],
-      oldOpacity,
-    ]);
   });
 
   // Add hover interaction
@@ -87,6 +61,6 @@ map.on("load", async () => {
   });
 
   map.on("mouseleave", "provinces-fill", () => {
-    // console.log('Mouseleave');
+    console.log('Mouseleave');
   });
 });

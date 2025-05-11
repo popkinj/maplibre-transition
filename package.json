@@ -26,6 +26,8 @@
   "devDependencies": {
     "@rollup/plugin-terser": "^0.4.0",
     "@rollup/plugin-typescript": "^11.0.0",
+    "@types/d3-ease": "^3.0.2",
+    "@types/d3-scale": "^4.0.9",
     "maplibre-gl": "^3.0.0",
     "rollup": "^3.0.0",
     "tslib": "^2.6.0",
