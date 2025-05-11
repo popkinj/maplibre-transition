@@ -41,7 +41,7 @@ map.on("load", async () => {
     const options = {
       duration: 1000,
       ease: 'linear',
-      delay: 1000,
+      delay: Math.random() * 1000,
       paint: {
         "fill-opacity": 1,
       }
