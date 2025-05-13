@@ -15,33 +15,34 @@ declare module "maplibre-gl" {
     T: {
       (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
+      listLayerTransitions: (layerId: string) => any[];
     };
   }
 }
 
 function animateFeature(map: Map, feature: any, keyName: string) {
   const now = Date.now();
-  
+
   // Get the transition from our set
-  const transition = Array.from(map.T.transitions).find(t => t[keyName]);
+  const transition = Array.from(map.T.transitions).find((t) => t[keyName]);
   if (!transition) return;
-  
+
   const scale = transition[keyName];
   const endTime = scale.domain()[1];
   if (now >= endTime) {
     // Transition is complete - set final value and remove from transitions
     map.setFeatureState(
-      { source: 'provinces', id: feature.id },
+      { source: "provinces", id: feature.id },
       { fillOpacity: scale.range()[1] }
     );
     map.T.transitions.delete(transition);
   } else {
     // Update current value
     map.setFeatureState(
-      { source: 'provinces', id: feature.id },
+      { source: "provinces", id: feature.id },
       { fillOpacity: scale(now) }
     );
-    
+
     // Schedule the next tick
     requestAnimationFrame(() => animateFeature(map, feature, keyName));
   }
@@ -50,26 +51,29 @@ function animateFeature(map: Map, feature: any, keyName: string) {
 export function init(map: Map): void {
   map.T = Object.assign(
     function (feature: any, options?: TransitionOptions) {
-      const {duration = 1000, delay = 0} = options || {};
+      const { duration = 1000, delay = 0 } = options || {};
       const now = Date.now() + delay;
 
-      const currentOpacity = map.getPaintProperty(feature.layer.id, 'fill-opacity');
+      const currentOpacity = map.getPaintProperty(
+        feature.layer.id,
+        "fill-opacity"
+      );
       let oldOpacity = 0.1; // default
 
       if (Array.isArray(currentOpacity)) {
         oldOpacity = currentOpacity[2] || 0.1;
-      } else if (typeof currentOpacity === 'number') {
+      } else if (typeof currentOpacity === "number") {
         oldOpacity = currentOpacity;
       }
 
       // Set up the layer to use feature state for opacity
-      map.setPaintProperty(feature.layer.id, 'fill-opacity', [
+      map.setPaintProperty(feature.layer.id, "fill-opacity", [
         "coalesce",
         ["feature-state", "fillOpacity"],
         oldOpacity,
       ]);
 
-      const newOpacity = options?.paint?.['fill-opacity'] || 1;
+      const newOpacity = options?.paint?.["fill-opacity"] || 1;
 
       const scale = scaleLinear()
         .domain([now, now + duration])
@@ -78,29 +82,54 @@ export function init(map: Map): void {
       const wrappedScale = (t: number) => {
         const progress = (t - now) / duration;
         const easedProgress = easeLinear(Math.min(Math.max(progress, 0), 1));
-        return oldOpacity + (easedProgress * (newOpacity - oldOpacity));
-      }
+        return oldOpacity + easedProgress * (newOpacity - oldOpacity);
+      };
 
       Object.assign(wrappedScale, scale);
 
       // Set the initial feature state
-      map.setFeatureState(feature, {fillOpacity: oldOpacity});
+      map.setFeatureState(feature, { fillOpacity: oldOpacity });
 
       // Use feature ID for the key to ensure unique transitions per feature
-      const keyName = feature.id + '-fill-opacity';
-      
+      const keyName = feature.id + "-fill-opacity";
+
       // Remove any existing transition for this feature
-      const existingTransition = Array.from(map.T.transitions).find(t => t[keyName]);
+      const existingTransition = Array.from(map.T.transitions).find(
+        (t) => t[keyName]
+      );
       if (existingTransition) {
         map.T.transitions.delete(existingTransition);
       }
-      
-      map.T.transitions.add({[keyName]: wrappedScale});
-      
+
+      map.T.transitions.add({ [keyName]: wrappedScale });
+
       // Start the animation
       animateFeature(map, feature, keyName);
     },
-    { transitions: new Set() }
+    {
+      transitions: new Set(),
+      listLayerTransitions: (layerId: string) => {
+        const layer = map.getLayer(layerId);
+        if (!layer) {
+          console.warn(`Layer ${layerId} not found`);
+          return [];
+        }
+        const sourceId = layer.source;
+        const layerTransitions = Array.from(map.T.transitions).filter(
+          (transition) => {
+            const keys = Object.keys(transition);
+            return keys.some((key) => {
+              const feature = map
+                .querySourceFeatures(sourceId)
+                .find((f) => key.startsWith(`${f.id}-`));
+              // Since we already have the layerId parameter, we don't need to check feature.layer.id
+              return feature !== undefined;
+            });
+          }
+        );
+        return layerTransitions;
+      },
+    }
   );
 }
 

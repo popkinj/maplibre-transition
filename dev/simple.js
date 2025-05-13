@@ -13,6 +13,7 @@ MaplibreTransition.init(map);
 
 // Load and display Canadian provinces
 map.on("load", async () => {
+
   // Load the GeoJSON data
   const response = await fetch("./data/canada-provinces.json");
   const data = await response.json();
@@ -32,51 +33,35 @@ map.on("load", async () => {
     paint: {
       "fill-color": "#088",
       "fill-opacity": 0.1,
-      "fill-outline-color": "#000",
+      "fill-outline-color": "#000"
     },
   });
 
   map.on("click", "provinces", (e) => {
     const options = {
       duration: 1000,
-      ease: "linear",
+      ease: 'linear',
       delay: Math.random() * 1000,
       paint: {
         "fill-opacity": 1,
-      },
+      }
     };
 
     // Transition the feature
     map.T(e.features[0], options);
   });
 
-  let hoverProvince;
-
   // Add hover interaction
   map.on("mousemove", "provinces", (e) => {
     const source = e.features[0].source;
     const layer = e.features[0].layer;
     const features = map.querySourceFeatures(e.features[0].source);
-
-    if (e.features[0].id !== hoverProvince) {
-      hoverProvince = e.features[0].id;
-      map.T(e.features[0], {
-        duration: 1000,
-        ease: "linear",
-        delay: Math.random() * 1000,
-        paint: {
-          "fill-opacity": 1,
-        },
-      });
-    }
+    // console.log('layer', layer.paint);
+    // console.log('feature state', e.features[0].state);
+    // console.log('layer style', map.getLayer(layer.id).paint['fill-opacity']);
   });
 
   map.on("mouseleave", "provinces", () => {
-    const features = map.querySourceFeatures('provinces');
-    const currentTransitions = map.T.listLayerTransitions('provinces');
-    console.log('all features', features);
-    console.log('current transitions', currentTransitions);
-    hoverProvince = null;
+    // console.log('Mouseleave');
   });
 });
-
