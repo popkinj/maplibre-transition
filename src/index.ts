@@ -16,6 +16,7 @@ declare module "maplibre-gl" {
       (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
       listLayerTransitions: (layerId: string) => any[];
+      reverseFeatureTransition: (feature: any, options?: TransitionOptions) => void;
     };
   }
 }
@@ -129,6 +130,39 @@ export function init(map: Map): void {
         );
         return layerTransitions;
       },
+      reverseFeatureTransition: (feature: any, options?: TransitionOptions) => {
+        // Get the current opacity from feature state
+        const currentState = map.getFeatureState(feature);
+        const currentOpacity = currentState.fillOpacity || 0.1;
+
+        // Find any existing transition for this feature
+        const keyName = feature.id + "-fill-opacity";
+        const existingTransition = Array.from(map.T.transitions).find(t => t[keyName]);
+        
+        let duration = options?.duration || 1000;
+        
+        // If there's an existing transition, calculate remaining time
+        if (existingTransition) {
+          const scale = existingTransition[keyName];
+          const now = Date.now();
+          const endTime = scale.domain()[1];
+          const remainingTime = Math.max(0, endTime - now);
+          // Use the remaining time as a base for our reverse transition
+          duration = Math.max(remainingTime, duration);
+        }
+
+        // Create a new transition that goes back to the default opacity
+        const reverseOptions = {
+          ...options,
+          duration,
+          paint: {
+            'fill-opacity': currentOpacity // Default opacity
+          }
+        };
+
+        // Start the reverse transition
+        map.T(feature, reverseOptions);
+      }
     }
   );
 }
