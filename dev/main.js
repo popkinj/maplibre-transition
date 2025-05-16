@@ -63,7 +63,7 @@ map.on("load", async () => {
         ease: "linear",
         delay: Math.random() * 1000,
         paint: {
-          "fill-opacity": 1,
+          "fill-opacity": [originalFillOpacity, 1],
         },
       });
     }
