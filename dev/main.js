@@ -59,6 +59,7 @@ map.on("load", async () => {
     const features = map.querySourceFeatures(e.features[0].source);
 
     if (e.features[0].id !== hoverProvince) {
+      console.log('leaving', hoverProvince, 'and entering', e.features[0].id);
       hoverProvince = e.features[0].id;
       map.T(e.features[0], {
         duration: 1000,

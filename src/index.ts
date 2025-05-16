@@ -21,6 +21,12 @@ declare module "maplibre-gl" {
   }
 }
 
+/**
+ * Animates a feature's opacity transition over time.
+ * @param map - The MapLibre map instance
+ * @param feature - The feature to animate
+ * @param keyName - Unique identifier for the transition
+ */
 function animateFeature(map: Map, feature: any, keyName: string) {
   const now = Date.now();
 
@@ -49,8 +55,18 @@ function animateFeature(map: Map, feature: any, keyName: string) {
   }
 }
 
+/**
+ * Initializes the transition plugin on a MapLibre map instance.
+ * Adds transition-related functionality to the map object.
+ * @param map - The MapLibre map instance to initialize
+ */
 export function init(map: Map): void {
   map.T = Object.assign(
+    /**
+     * Transitions a feature's opacity to a new value.
+     * @param feature - The feature to transition
+     * @param options - Transition options including duration, delay, and target paint properties
+     */
     function (feature: any, options?: TransitionOptions) {
       const { duration = 1000, delay = 0 } = options || {};
       const now = Date.now() + delay;
@@ -109,6 +125,12 @@ export function init(map: Map): void {
     },
     {
       transitions: new Set(),
+      
+      /**
+       * Lists all active transitions for a specific layer.
+       * @param layerId - The ID of the layer to check for transitions
+       * @returns Array of transition objects for the specified layer
+       */
       listLayerTransitions: (layerId: string) => {
         const layer = map.getLayer(layerId);
         if (!layer) {
@@ -130,6 +152,13 @@ export function init(map: Map): void {
         );
         return layerTransitions;
       },
+
+      /**
+       * Reverses an ongoing transition for a feature.
+       * If a transition is in progress, it will smoothly transition back to the default state.
+       * @param feature - The feature to reverse the transition for
+       * @param options - Optional transition options for the reverse animation
+       */
       reverseFeatureTransition: (feature: any, options?: TransitionOptions) => {
         // Get the current opacity from feature state
         const currentState = map.getFeatureState(feature);
