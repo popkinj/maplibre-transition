@@ -52,9 +52,6 @@ map.on("load", async () => {
 
   // Add hover interaction
   map.on("mousemove", "provinces", (e) => {
-    // const source = e.features[0].source;
-    // const layer = e.features[0].layer;
-    // const features = map.querySourceFeatures(e.features[0].source);
 
     if (e.features[0].id !== hoverProvince?.id) {
       // console.log('e.features[0]', e.features[0]);
