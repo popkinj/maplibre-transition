@@ -12,8 +12,14 @@ const originalFillOpacity = 0.1;
 
 const unhover = (feature) => {
   console.log('unhovering', feature);
+  map.T(feature, {
+    duration: 1000,
+    ease: "linear",
+    paint: {
+      "fill-opacity": originalFillOpacity,
+    },
+  });
 }
-
 // Initialize the plugin
 MaplibreTransition.init(map);
 
@@ -42,7 +48,6 @@ map.on("load", async () => {
     },
   });
 
-
   let hoverProvince;
 
   // Add hover interaction
@@ -52,9 +57,9 @@ map.on("load", async () => {
     // const features = map.querySourceFeatures(e.features[0].source);
 
     if (e.features[0].id !== hoverProvince?.id) {
-      console.log('e.features[0]', e.features[0]);
+      // console.log('e.features[0]', e.features[0]);
       // console.log('leaving', hoverProvince, 'and entering', e.features[0].id);
-      // if (hoverProvince) unhover(e.features[0]);
+      // if (hoverProvince) unhover(hoverProvince);
       hoverProvince = e.features[0];
       map.T(e.features[0], {
         duration: 1000,
@@ -70,7 +75,7 @@ map.on("load", async () => {
   map.on("mouseleave", "provinces", () => {
     const features = map.querySourceFeatures('provinces');
     const currentTransitions = map.T.listLayerTransitions('provinces');
-    if (hoverProvince) unhover(features.find(f => f.id === hoverProvince.id));
+    // if (hoverProvince) unhover(features.find(f => f.id === hoverProvince.id));
     // console.log('all features', features);
     // console.log('current transitions', currentTransitions);
     hoverProvince = null;
