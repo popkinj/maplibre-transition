@@ -119,6 +119,39 @@ export function init(map: Map): void {
       transitions: new Set(),
       
       /**
+       * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
+       * @param scale - The original d3 scale to reverse
+       * @param currentTime - The current timestamp
+       * @returns A new scale that will transition back to the original value
+       */
+      reverseScale: (scale: any, currentTime: number) => {
+        const [startTime, endTime] = scale.domain();
+        const [startValue, endValue] = scale.range();
+        
+        // Calculate how much time has passed in the original transition
+        const elapsedTime = currentTime - startTime;
+        const totalDuration = endTime - startTime;
+        
+        // Calculate the current value based on elapsed time
+        const currentValue = scale(currentTime);
+        
+        // Create a new scale that goes from current value back to start value
+        const newScale = scaleLinear()
+          .domain([currentTime, currentTime + elapsedTime])
+          .range([currentValue, startValue]);
+          
+        // Wrap the scale with the same easing function
+        const wrappedScale = (t: number) => {
+          const progress = (t - currentTime) / elapsedTime;
+          const easedProgress = easeLinear(Math.min(Math.max(progress, 0), 1));
+          return currentValue + easedProgress * (startValue - currentValue);
+        };
+        
+        Object.assign(wrappedScale, newScale);
+        return wrappedScale;
+      },
+
+      /**
        * Lists all active transitions for a specific layer.
        * @param layerId - The ID of the layer to check for transitions
        * @returns Array of transition objects for the specified layer
