@@ -16,7 +16,7 @@ declare module "maplibre-gl" {
       (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
       listLayerTransitions: (layerId: string) => any[];
-      reverseFeatureTransition: (feature: any, options?: TransitionOptions) => void;
+      calculateReverseFeatureTransition: (feature: any, options?: TransitionOptions) => void;
     };
   }
 }
@@ -75,13 +75,7 @@ export function init(map: Map): void {
         feature.layer.id,
         "fill-opacity"
       );
-      let oldOpacity = 0.1; // default
-
-      if (Array.isArray(currentOpacity)) {
-        oldOpacity = currentOpacity[2] || 0.1;
-      } else if (typeof currentOpacity === "number") {
-        oldOpacity = currentOpacity;
-      }
+      const [oldOpacity, newOpacity] = options?.paint?.fillOpacity || [0.1, 1];
 
       // Set up the layer to use feature state for opacity
       map.setPaintProperty(feature.layer.id, "fill-opacity", [
@@ -89,8 +83,6 @@ export function init(map: Map): void {
         ["feature-state", "fillOpacity"],
         oldOpacity,
       ]);
-
-      const newOpacity = options?.paint?.["fill-opacity"] || 1;
 
       const scale = scaleLinear()
         .domain([now, now + duration])
@@ -159,7 +151,7 @@ export function init(map: Map): void {
        * @param feature - The feature to reverse the transition for
        * @param options - Optional transition options for the reverse animation
        */
-      reverseFeatureTransition: (feature: any, options?: TransitionOptions) => {
+      calculateReverseFeatureTransition: (feature: any, options?: TransitionOptions) => {
         // Get the current opacity from feature state
         const currentState = map.getFeatureState(feature);
         const currentOpacity = currentState.fillOpacity || 0.1;
@@ -180,17 +172,8 @@ export function init(map: Map): void {
           duration = Math.max(remainingTime, duration);
         }
 
-        // Create a new transition that goes back to the default opacity
-        const reverseOptions = {
-          ...options,
-          duration,
-          paint: {
-            'fill-opacity': currentOpacity // Default opacity
-          }
-        };
+        return [currentOpacity, duration]
 
-        // Start the reverse transition
-        map.T(feature, reverseOptions);
       }
     }
   );
