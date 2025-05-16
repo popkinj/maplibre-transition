@@ -8,6 +8,12 @@ const map = new maplibregl.Map({
   zoom: 3,
 });
 
+const originalFillOpacity = 0.1;
+
+const unhover = (feature) => {
+  console.log('unhovering', feature);
+}
+
 // Initialize the plugin
 MaplibreTransition.init(map);
 
@@ -31,36 +37,25 @@ map.on("load", async () => {
     source: "provinces",
     paint: {
       "fill-color": "#088",
-      "fill-opacity": 0.1,
+      "fill-opacity": originalFillOpacity,
       "fill-outline-color": "#000",
     },
   });
 
-  map.on("click", "provinces", (e) => {
-    const options = {
-      duration: 1000,
-      ease: "linear",
-      delay: Math.random() * 1000,
-      paint: {
-        "fill-opacity": 1,
-      },
-    };
-
-    // Transition the feature
-    map.T(e.features[0], options);
-  });
 
   let hoverProvince;
 
   // Add hover interaction
   map.on("mousemove", "provinces", (e) => {
-    const source = e.features[0].source;
-    const layer = e.features[0].layer;
-    const features = map.querySourceFeatures(e.features[0].source);
+    // const source = e.features[0].source;
+    // const layer = e.features[0].layer;
+    // const features = map.querySourceFeatures(e.features[0].source);
 
-    if (e.features[0].id !== hoverProvince) {
-      console.log('leaving', hoverProvince, 'and entering', e.features[0].id);
-      hoverProvince = e.features[0].id;
+    if (e.features[0].id !== hoverProvince?.id) {
+      console.log('e.features[0]', e.features[0]);
+      // console.log('leaving', hoverProvince, 'and entering', e.features[0].id);
+      // if (hoverProvince) unhover(e.features[0]);
+      hoverProvince = e.features[0];
       map.T(e.features[0], {
         duration: 1000,
         ease: "linear",
@@ -75,8 +70,9 @@ map.on("load", async () => {
   map.on("mouseleave", "provinces", () => {
     const features = map.querySourceFeatures('provinces');
     const currentTransitions = map.T.listLayerTransitions('provinces');
-    console.log('all features', features);
-    console.log('current transitions', currentTransitions);
+    if (hoverProvince) unhover(features.find(f => f.id === hoverProvince.id));
+    // console.log('all features', features);
+    // console.log('current transitions', currentTransitions);
     hoverProvince = null;
   });
 });
