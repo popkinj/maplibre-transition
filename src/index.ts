@@ -71,18 +71,17 @@ export function init(map: Map): void {
       const { duration = 1000, delay = 0 } = options || {};
       const now = Date.now() + delay;
 
-      const currentOpacity = map.getPaintProperty(
-        feature.layer.id,
-        "fill-opacity"
-      );
       const [oldOpacity, newOpacity] = options?.paint?.fillOpacity || [0.1, 1];
 
       // Set up the layer to use feature state for opacity
-      map.setPaintProperty(feature.layer.id, "fill-opacity", [
-        "coalesce",
-        ["feature-state", "fillOpacity"],
-        oldOpacity,
-      ]);
+      const currentPaint = map.getPaintProperty(feature.layer.id, "fill-opacity") as any[];
+      if (currentPaint[0] !== 'coalesce') {
+        map.setPaintProperty(feature.layer.id, "fill-opacity", [
+          "coalesce",
+          ["feature-state", "fillOpacity"],
+          oldOpacity,
+        ]);
+      }
 
       const scale = scaleLinear()
         .domain([now, now + duration])

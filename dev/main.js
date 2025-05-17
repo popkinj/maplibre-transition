@@ -11,15 +11,14 @@ const map = new maplibregl.Map({
 const originalFillOpacity = 0.1;
 
 const unhover = (feature) => {
-  console.log('unhovering', feature);
   map.T(feature, {
     duration: 1000,
     ease: "linear",
     paint: {
-      "fill-opacity": originalFillOpacity,
+      "fillOpacity": [1, originalFillOpacity],
     },
   });
-}
+};
 // Initialize the plugin
 MaplibreTransition.init(map);
 
@@ -52,7 +51,6 @@ map.on("load", async () => {
 
   // Add hover interaction
   map.on("mousemove", "provinces", (e) => {
-
     if (e.features[0].id !== hoverProvince?.id) {
       // console.log('e.features[0]', e.features[0]);
       // console.log('leaving', hoverProvince, 'and entering', e.features[0].id);
@@ -70,12 +68,11 @@ map.on("load", async () => {
   });
 
   map.on("mouseleave", "provinces", () => {
-    const features = map.querySourceFeatures('provinces');
-    const currentTransitions = map.T.listLayerTransitions('provinces');
-    // if (hoverProvince) unhover(features.find(f => f.id === hoverProvince.id));
-    // console.log('all features', features);
-    // console.log('current transitions', currentTransitions);
+    const feature = map
+      .queryRenderedFeatures(null, { layers: ["provinces"] })
+      .find((f) => f.id === hoverProvince?.id);
+
+    if (hoverProvince && feature) unhover(feature);
     hoverProvince = null;
   });
 });
-
