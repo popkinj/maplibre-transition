@@ -52,8 +52,6 @@ map.on("load", async () => {
   // Add hover interaction
   map.on("mousemove", "provinces", (e) => {
     if (e.features[0].id !== hoverProvince?.id) {
-      // console.log('e.features[0]', e.features[0]);
-      // console.log('leaving', hoverProvince, 'and entering', e.features[0].id);
       if (hoverProvince) unhover(hoverProvince);
       hoverProvince = e.features[0];
       map.T(e.features[0], {

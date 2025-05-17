@@ -16,7 +16,6 @@ declare module "maplibre-gl" {
       (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
       listLayerTransitions: (layerId: string) => any[];
-      calculateReverseFeatureTransition: (feature: any, options?: TransitionOptions) => void;
       reverseScale: (scale: any, currentTime: number) => any;
     };
   }
@@ -115,7 +114,6 @@ export function init(map: Map): void {
         map.T.transitions.add({ [keyName]: wrappedScale });
       }
 
-
       // Start the animation
       animateFeature(map, feature, keyName);
     },
@@ -181,37 +179,6 @@ export function init(map: Map): void {
         );
         return layerTransitions;
       },
-
-      /**
-       * Reverses an ongoing transition for a feature.
-       * If a transition is in progress, it will smoothly transition back to the default state.
-       * @param feature - The feature to reverse the transition for
-       * @param options - Optional transition options for the reverse animation
-       */
-      calculateReverseFeatureTransition: (feature: any, options?: TransitionOptions) => {
-        // Get the current opacity from feature state
-        const currentState = map.getFeatureState(feature);
-        const currentOpacity = currentState.fillOpacity || 0.1;
-
-        // Find any existing transition for this feature
-        const keyName = feature.id + "-fill-opacity";
-        const existingTransition = Array.from(map.T.transitions).find(t => t[keyName]);
-        
-        let duration = options?.duration || 1000;
-        
-        // If there's an existing transition, calculate remaining time
-        if (existingTransition) {
-          const scale = existingTransition[keyName];
-          const now = Date.now();
-          const endTime = scale.domain()[1];
-          const remainingTime = Math.max(0, endTime - now);
-          // Use the remaining time as a base for our reverse transition
-          duration = Math.max(remainingTime, duration);
-        }
-
-        return [currentOpacity, duration]
-
-      }
     }
   );
 }
