@@ -17,6 +17,7 @@ declare module "maplibre-gl" {
       transitions: Set<any>;
       listLayerTransitions: (layerId: string) => any[];
       calculateReverseFeatureTransition: (feature: any, options?: TransitionOptions) => void;
+      reverseScale: (scale: any, currentTime: number) => any;
     };
   }
 }
@@ -101,15 +102,19 @@ export function init(map: Map): void {
       // Use feature ID for the key to ensure unique transitions per feature
       const keyName = feature.id + "-fill-opacity";
 
-      // Remove any existing transition for this feature
+      // Check if there is an existing transition for this feature
       const existingTransition = Array.from(map.T.transitions).find(
         (t) => t[keyName]
       );
+      // If there is an existing transition, reverse it
       if (existingTransition) {
+        const reversedScale = map.T.reverseScale(existingTransition[keyName], now);
         map.T.transitions.delete(existingTransition);
+        map.T.transitions.add({ [keyName]: reversedScale });
+      } else { // Otherwise, add the new transition
+        map.T.transitions.add({ [keyName]: wrappedScale });
       }
 
-      map.T.transitions.add({ [keyName]: wrappedScale });
 
       // Start the animation
       animateFeature(map, feature, keyName);

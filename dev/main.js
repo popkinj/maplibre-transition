@@ -54,14 +54,14 @@ map.on("load", async () => {
     if (e.features[0].id !== hoverProvince?.id) {
       // console.log('e.features[0]', e.features[0]);
       // console.log('leaving', hoverProvince, 'and entering', e.features[0].id);
-      // if (hoverProvince) unhover(hoverProvince);
+      if (hoverProvince) unhover(hoverProvince);
       hoverProvince = e.features[0];
       map.T(e.features[0], {
         duration: 1000,
         ease: "linear",
         delay: Math.random() * 1000,
         paint: {
-          "fill-opacity": [originalFillOpacity, 1],
+          "fillOpacity": [originalFillOpacity, 1],
         },
       });
     }
