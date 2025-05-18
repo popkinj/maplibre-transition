@@ -12,7 +12,7 @@ const originalFillOpacity = 0.1;
 
 const unhover = (feature) => {
   map.T(feature, {
-    duration: 1000,
+    duration: 200,
     ease: "linear",
     paint: {
       "fillOpacity": [1, originalFillOpacity],
@@ -55,9 +55,9 @@ map.on("load", async () => {
       if (hoverProvince) unhover(hoverProvince);
       hoverProvince = e.features[0];
       map.T(e.features[0], {
-        duration: 1000,
+        duration: 500,
         ease: "linear",
-        delay: Math.random() * 1000,
+        // delay: Math.random() * 1000,
         paint: {
           "fillOpacity": [originalFillOpacity, 1],
         },

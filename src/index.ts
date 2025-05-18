@@ -39,14 +39,14 @@ function animateFeature(map: Map, feature: any, keyName: string) {
   if (now >= endTime) {
     // Transition is complete - set final value and remove from transitions
     map.setFeatureState(
-      { source: "provinces", id: feature.id },
+      { source: feature.source, id: feature.id },
       { fillOpacity: scale.range()[1] }
     );
     map.T.transitions.delete(transition);
   } else {
     // Update current value
     map.setFeatureState(
-      { source: "provinces", id: feature.id },
+      { source: feature.source, id: feature.id },
       { fillOpacity: scale(now) }
     );
 
