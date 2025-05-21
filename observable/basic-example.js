@@ -9,8 +9,16 @@ This notebook demonstrates the basic usage of the MapLibre Transition plugin for
     },
     {
       type: "js",
-      content: `import { Map } from "maplibre-gl";
+      content: `// Import dependencies
+import { Map } from "maplibre-gl";
 import { init } from "npm:maplibre-transition";
+
+// Create a container for the map
+const container = document.createElement('div');
+container.style.width = '100%';
+container.style.height = '400px';
+container.id = 'map';
+display(container);
 
 // Create map instance
 const map = new Map({
@@ -54,6 +62,7 @@ map.on('load', () => {
       content: `// Add interactive transition
 const button = document.createElement('button');
 button.textContent = 'Toggle Opacity';
+button.style.marginTop = '10px';
 button.onclick = () => {
   const feature = {
     source: 'polygon',
@@ -69,7 +78,7 @@ button.onclick = () => {
   });
 };
 
-document.body.appendChild(button);`
+display(button);`
     }
   ]
 }; 

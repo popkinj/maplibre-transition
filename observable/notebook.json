@@ -1,0 +1,22 @@
+{
+  "title": "MapLibre Transition Plugin - Basic Example",
+  "description": "A simple demonstration of the MapLibre Transition plugin",
+  "cells": [
+    {
+      "type": "md",
+      "content": "# MapLibre Transition Plugin Demo\nThis notebook demonstrates the basic usage of the MapLibre Transition plugin for smooth style transitions."
+    },
+    {
+      "type": "js",
+      "content": "import { Map } from \"maplibre-gl\";\nimport { init } from \"npm:maplibre-transition\";\n\n// Create map instance\nconst map = new Map({\n  container: 'map',\n  style: 'https://demotiles.maplibre.org/style.json',\n  center: [-74.5, 40],\n  zoom: 9\n});\n\n// Initialize the transition plugin\ninit(map);"
+    },
+    {
+      "type": "js",
+      "content": "// Add a simple polygon layer\nmap.on('load', () => {\n  map.addSource('polygon', {\n    type: 'geojson',\n    data: {\n      type: 'Feature',\n      geometry: {\n        type: 'Polygon',\n        coordinates: [[[-75, 40], [-74, 40], [-74, 41], [-75, 41], [-75, 40]]]\n      }\n    }\n  });\n\n  map.addLayer({\n    id: 'polygon-layer',\n    type: 'fill',\n    source: 'polygon',\n    paint: {\n      'fill-color': '#088',\n      'fill-opacity': 0.1\n    }\n  });\n});"
+    },
+    {
+      "type": "js",
+      "content": "// Add interactive transition\nconst button = document.createElement('button');\nbutton.textContent = 'Toggle Opacity';\nbutton.onclick = () => {\n  const feature = {\n    source: 'polygon',\n    id: 'polygon-1',\n    layer: map.getLayer('polygon-layer')\n  };\n  \n  map.T(feature, {\n    duration: 1000,\n    paint: {\n      fillOpacity: [0.1, 0.8]\n    }\n  });\n};\n\ndocument.body.appendChild(button);"
+    }
+  ]
+}
