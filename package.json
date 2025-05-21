@@ -6,20 +6,36 @@
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.config.mjs -w",
     "serve": "vite",
-    "test": "jest"
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "maplibre",
     "maplibre-gl-js",
+    "transition",
+    "animate",
     "map",
     "gis"
   ],
-  "author": "",
+  "author": "Jamie Popkin <popkinj@littleearth.ca>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/popkinj/maplibre-transition.git"
+  },
+  "bugs": {
+    "url": "https://github.com/popkinj/maplibre-transition/issues"
+  },
+  "homepage": "https://github.com/popkinj/maplibre-transition#readme",
   "peerDependencies": {
     "maplibre-gl": "^3.0.0"
   },
