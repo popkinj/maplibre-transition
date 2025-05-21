@@ -1,5 +1,6 @@
 import typescript from '@rollup/plugin-typescript';
 import terser from '@rollup/plugin-terser';
+import { nodeResolve } from '@rollup/plugin-node-resolve';
 
 export default {
     input: 'src/index.ts',
@@ -20,7 +21,15 @@ export default {
     external: [
         'maplibre-gl'
     ],
+    onwarn(warning, warn) {
+        // Suppress circular dependency warnings from d3
+        if (warning.code === 'CIRCULAR_DEPENDENCY' && warning.message.includes('d3-')) {
+            return;
+        }
+        warn(warning);
+    },
     plugins: [
+        nodeResolve(),
         typescript(),
         terser()
     ]
