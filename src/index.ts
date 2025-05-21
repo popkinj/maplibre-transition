@@ -4,7 +4,7 @@ import { easeLinear } from "d3-ease";
 
 interface TransitionOptions {
   duration?: number;
-  // ease?: string;
+  ease?: string;
   delay?: number;
   paint?: Record<string, any>;
   onComplete?: () => void;
@@ -21,14 +21,20 @@ declare module "maplibre-gl" {
   }
 }
 
+// Helper function to convert camelCase to kebab-case
+function camelToKebab(str: string): string {
+  return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+}
+
 /**
- * Animates a feature's opacity transition over time.
+ * Animates a feature's style transition over time.
  * @param map - The MapLibre map instance
  * @param feature - The feature to animate
  * @param keyName - Unique identifier for the transition
  */
 function animateFeature(map: Map, feature: any, keyName: string) {
   const now = Date.now();
+  const style = keyName.split('-').slice(1).join('-'); // Extract style from keyName
 
   // Get the transition from our set
   const transition = Array.from(map.T.transitions).find((t) => t[keyName]);
@@ -40,14 +46,14 @@ function animateFeature(map: Map, feature: any, keyName: string) {
     // Transition is complete - set final value and remove from transitions
     map.setFeatureState(
       { source: feature.source, id: feature.id },
-      { fillOpacity: scale.range()[1] }
+      { [style]: scale.range()[1] }
     );
     map.T.transitions.delete(transition);
   } else {
     // Update current value
     map.setFeatureState(
       { source: feature.source, id: feature.id },
-      { fillOpacity: scale(now) }
+      { [style]: scale(now) }
     );
 
     // Schedule the next tick
@@ -63,7 +69,7 @@ function animateFeature(map: Map, feature: any, keyName: string) {
 export function init(map: Map): void {
   map.T = Object.assign(
     /**
-     * Transitions a feature's opacity to a new value.
+     * Transitions a feature's style to a new value.
      * @param feature - The feature to transition
      * @param options - Transition options including duration, delay, and target paint properties
      */
@@ -71,35 +77,38 @@ export function init(map: Map): void {
       const { duration = 1000, delay = 0 } = options || {};
       const now = Date.now() + delay;
 
-      const [oldOpacity, newOpacity] = options?.paint?.fillOpacity || [0.1, 1];
+      // Get the first paint property from the options
+      const style = Object.keys(options?.paint || {})[0] || 'fillOpacity';
+      const [oldStyle, newStyle] = options?.paint?.[style] || [0.1, 1];
+      const kebabStyle = camelToKebab(style);
 
-      // Set up the layer to use feature state for opacity
-      const currentPaint = map.getPaintProperty(feature.layer.id, "fill-opacity") as any[];
+      // Set up the layer to use feature state for style
+      const currentPaint = map.getPaintProperty(feature.layer.id, kebabStyle) as any[];
       if (currentPaint[0] !== 'coalesce') {
-        map.setPaintProperty(feature.layer.id, "fill-opacity", [
+        map.setPaintProperty(feature.layer.id, kebabStyle, [
           "coalesce",
-          ["feature-state", "fillOpacity"],
-          oldOpacity,
+          ["feature-state", style],
+          oldStyle,
         ]);
       }
 
       const scale = scaleLinear()
         .domain([now, now + duration])
-        .range([oldOpacity, newOpacity]);
+        .range([oldStyle, newStyle]);
 
       const wrappedScale = (t: number) => {
         const progress = (t - now) / duration;
         const easedProgress = easeLinear(Math.min(Math.max(progress, 0), 1));
-        return oldOpacity + easedProgress * (newOpacity - oldOpacity);
+        return oldStyle + easedProgress * (newStyle - oldStyle);
       };
 
       Object.assign(wrappedScale, scale);
 
       // Set the initial feature state
-      map.setFeatureState(feature, { fillOpacity: oldOpacity });
+      map.setFeatureState(feature, { [style]: oldStyle });
 
       // Use feature ID for the key to ensure unique transitions per feature
-      const keyName = feature.id + "-fill-opacity";
+      const keyName = feature.id + "-" + style;
 
       // Check if there is an existing transition for this feature
       const existingTransition = Array.from(map.T.transitions).find(

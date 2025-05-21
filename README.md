@@ -15,17 +15,24 @@ import maplibregl from 'maplibre-gl';
 import MaplibreTransition from 'maplibre-transition';
 
 const map = new maplibregl.Map({
-    container: 'map',
-    style: 'https://demotiles.maplibre.org/style.json',
-    center: [0, 0],
-    zoom: 2
+  container: "map",
+  style: "https://demotiles.maplibre.org/style.json",
+  center: [0, 0],
+  zoom: 2,
 });
 
 // Initialize the plugin
 MaplibreTransition.init(map);
 
 // Use the plugin
-map.T(); // Will print "Hello from map.T!" to the console
+map.T(feature, {
+  duration: 1000,
+  delay: 500,
+  ease: "linear",
+  paint: {
+    "fill-opacity": [0.1, 1],
+  },
+});
 ```
 
 ## Development
