@@ -16,8 +16,7 @@
     "dev": "rollup -c rollup.config.mjs -w",
     "serve": "vite",
     "test": "jest",
-    "prepublishOnly": "npm run build",
-    "generate-notebook": "node observable/generate-notebook.js"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "maplibre",
