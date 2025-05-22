@@ -1,10 +1,10 @@
 import { Map } from "maplibre-gl";
 import { scaleLinear } from "d3-scale";
-import { easeLinear } from "d3-ease";
+import * as d3Ease from "d3-ease";
 
 interface TransitionOptions {
   duration?: number;
-  ease?: string;
+  ease?: 'linear' | 'quad' | 'cubic' | 'elastic' | 'bounce' | 'circle' | 'exp' | 'poly' | 'sin';
   delay?: number;
   paint?: Record<string, any>;
   onComplete?: () => void;
@@ -16,7 +16,7 @@ declare module "maplibre-gl" {
       (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
       listLayerTransitions: (layerId: string) => any[];
-      reverseScale: (scale: any, currentTime: number) => any;
+      reverseScale: (scale: any, currentTime: number, easeFn: any) => any;
     };
   }
 }
@@ -74,7 +74,7 @@ export function init(map: Map): void {
      * @param options - Transition options including duration, delay, and target paint properties
      */
     function (feature: any, options?: TransitionOptions) {
-      const { duration = 1000, delay = 0 } = options || {};
+      const { duration = 1000, delay = 0, ease = 'linear' } = options || {};
       const now = Date.now() + delay;
 
       // Get the first paint property from the options
@@ -96,9 +96,12 @@ export function init(map: Map): void {
         .domain([now, now + duration])
         .range([oldStyle, newStyle]);
 
+      const easeName = `ease${ease.charAt(0).toUpperCase() + ease.slice(1)}` as keyof typeof d3Ease;
+      const easeFn = d3Ease[easeName] || d3Ease.easeLinear;
+
       const wrappedScale = (t: number) => {
         const progress = (t - now) / duration;
-        const easedProgress = easeLinear(Math.min(Math.max(progress, 0), 1));
+        const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
         return oldStyle + easedProgress * (newStyle - oldStyle);
       };
 
@@ -116,7 +119,7 @@ export function init(map: Map): void {
       );
       // If there is an existing transition, reverse it
       if (existingTransition) {
-        const reversedScale = map.T.reverseScale(existingTransition[keyName], now);
+        const reversedScale = map.T.reverseScale(existingTransition[keyName], now, easeFn);
         map.T.transitions.delete(existingTransition);
         map.T.transitions.add({ [keyName]: reversedScale });
       } else { // Otherwise, add the new transition
@@ -133,9 +136,10 @@ export function init(map: Map): void {
        * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
        * @param scale - The original d3 scale to reverse
        * @param currentTime - The current timestamp
+       * @param easeFn - The easing function to use for the reverse transition
        * @returns A new scale that will transition back to the original value
        */
-      reverseScale: (scale: any, currentTime: number) => {
+      reverseScale: (scale: any, currentTime: number, easeFn: any) => {
         const [startTime, endTime] = scale.domain();
         const [startValue, endValue] = scale.range();
         
@@ -154,7 +158,7 @@ export function init(map: Map): void {
         // Wrap the scale with the same easing function
         const wrappedScale = (t: number) => {
           const progress = (t - currentTime) / elapsedTime;
-          const easedProgress = easeLinear(Math.min(Math.max(progress, 0), 1));
+          const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
           return currentValue + easedProgress * (startValue - currentValue);
         };
         
