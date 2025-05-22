@@ -4,7 +4,16 @@ import * as d3Ease from "d3-ease";
 
 interface TransitionOptions {
   duration?: number;
-  ease?: 'linear' | 'quad' | 'cubic' | 'elastic' | 'bounce' | 'circle' | 'exp' | 'poly' | 'sin';
+  ease?:
+    | "linear"
+    | "quad"
+    | "cubic"
+    | "elastic"
+    | "bounce"
+    | "circle"
+    | "exp"
+    | "poly"
+    | "sin";
   delay?: number;
   paint?: Record<string, any>;
   onComplete?: () => void;
@@ -23,7 +32,7 @@ declare module "maplibre-gl" {
 
 // Helper function to convert camelCase to kebab-case
 function camelToKebab(str: string): string {
-  return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
 /**
@@ -34,7 +43,7 @@ function camelToKebab(str: string): string {
  */
 function animateFeature(map: Map, feature: any, keyName: string) {
   const now = Date.now();
-  const style = keyName.split('-').slice(1).join('-'); // Extract style from keyName
+  const style = keyName.split("-").slice(1).join("-"); // Extract style from keyName
 
   // Get the transition from our set
   const transition = Array.from(map.T.transitions).find((t) => t[keyName]);
@@ -74,17 +83,20 @@ export function init(map: Map): void {
      * @param options - Transition options including duration, delay, and target paint properties
      */
     function (feature: any, options?: TransitionOptions) {
-      const { duration = 1000, delay = 0, ease = 'linear' } = options || {};
+      const { duration = 1000, delay = 0, ease = "linear" } = options || {};
       const now = Date.now() + delay;
 
       // Get the first paint property from the options
-      const style = Object.keys(options?.paint || {})[0] || 'fillOpacity';
+      const style = Object.keys(options?.paint || {})[0] || "fillOpacity";
       const [oldStyle, newStyle] = options?.paint?.[style] || [0.1, 1];
       const kebabStyle = camelToKebab(style);
 
       // Set up the layer to use feature state for style
-      const currentPaint = map.getPaintProperty(feature.layer.id, kebabStyle) as any[];
-      if (currentPaint[0] !== 'coalesce') {
+      const currentPaint = map.getPaintProperty(
+        feature.layer.id,
+        kebabStyle
+      ) as any[];
+      if (currentPaint[0] !== "coalesce") {
         map.setPaintProperty(feature.layer.id, kebabStyle, [
           "coalesce",
           ["feature-state", style],
@@ -96,7 +108,9 @@ export function init(map: Map): void {
         .domain([now, now + duration])
         .range([oldStyle, newStyle]);
 
-      const easeName = `ease${ease.charAt(0).toUpperCase() + ease.slice(1)}` as keyof typeof d3Ease;
+      const easeName = `ease${
+        ease.charAt(0).toUpperCase() + ease.slice(1)
+      }` as keyof typeof d3Ease;
       const easeFn = d3Ease[easeName] || d3Ease.easeLinear;
 
       const wrappedScale = (t: number) => {
@@ -119,10 +133,15 @@ export function init(map: Map): void {
       );
       // If there is an existing transition, reverse it
       if (existingTransition) {
-        const reversedScale = map.T.reverseScale(existingTransition[keyName], now, easeFn);
+        const reversedScale = map.T.reverseScale(
+          existingTransition[keyName],
+          now,
+          easeFn
+        );
         map.T.transitions.delete(existingTransition);
         map.T.transitions.add({ [keyName]: reversedScale });
-      } else { // Otherwise, add the new transition
+      } else {
+        // Otherwise, add the new transition
         map.T.transitions.add({ [keyName]: wrappedScale });
       }
 
@@ -131,7 +150,7 @@ export function init(map: Map): void {
     },
     {
       transitions: new Set(),
-      
+
       /**
        * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
        * @param scale - The original d3 scale to reverse
@@ -142,26 +161,26 @@ export function init(map: Map): void {
       reverseScale: (scale: any, currentTime: number, easeFn: any) => {
         const [startTime, endTime] = scale.domain();
         const [startValue, endValue] = scale.range();
-        
+
         // Calculate how much time has passed in the original transition
         const elapsedTime = currentTime - startTime;
         const totalDuration = endTime - startTime;
-        
+
         // Calculate the current value based on elapsed time
         const currentValue = scale(currentTime);
-        
+
         // Create a new scale that goes from current value back to start value
         const newScale = scaleLinear()
           .domain([currentTime, currentTime + elapsedTime])
           .range([currentValue, startValue]);
-          
+
         // Wrap the scale with the same easing function
         const wrappedScale = (t: number) => {
           const progress = (t - currentTime) / elapsedTime;
           const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
           return currentValue + easedProgress * (startValue - currentValue);
         };
-        
+
         Object.assign(wrappedScale, newScale);
         return wrappedScale;
       },
