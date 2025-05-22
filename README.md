@@ -35,6 +35,31 @@ map.T(feature, {
 });
 ```
 
+## Easing Types
+
+The plugin supports the following easing functions from d3-ease:
+
+- `"linear"` - Linear interpolation (no easing)
+- `"quad"` - Quadratic easing (smooth acceleration/deceleration)
+- `"cubic"` - Cubic easing (stronger acceleration/deceleration)
+- `"elastic"` - Elastic easing (bouncy effect)
+- `"bounce"` - Bounce easing (multiple bounces)
+- `"circle"` - Circular easing (circular acceleration/deceleration)
+- `"exp"` - Exponential easing (exponential acceleration/deceleration)
+- `"poly"` - Polynomial easing (configurable power)
+- `"sin"` - Sinusoidal easing (smooth sine wave)
+
+Example with different easing:
+```javascript
+map.T(feature, {
+  duration: 1000,
+  ease: "elastic", // Try different easing functions
+  paint: {
+    "fill-opacity": [0.1, 1],
+  },
+});
+```
+
 ## Development
 
 ```bash
