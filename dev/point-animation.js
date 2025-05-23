@@ -71,7 +71,7 @@ map.on("load", () => {
 
   // Wait for the layer to be rendered before animating
   // XXX: This is running before features are loaded
-  map.once("render", () => {
+  map.once("load", () => {
     const features = map.queryRenderedFeatures(null, { layers: ["cities"] });
     console.log('Rendered features:', features);
     features.forEach(feature => {
@@ -85,4 +85,8 @@ map.on("load", () => {
       });
     });
   });
+
+  map.on('sourcedata', (e) => {
+    console.log('sourcedata', e);
+  })
 }); 
