@@ -38,7 +38,7 @@ map.on("load", () => {
   map.addSource("cities", {
     type: "geojson",
     data: canadianCities,
-    promoteId: "id"
+    promoteId: "name"
   });
 
   // Add a circle layer
@@ -69,24 +69,21 @@ map.on("load", () => {
     console.log("Clicked on:", e.features[0]);
   });
 
-  // Wait for the layer to be rendered before animating
-  // XXX: This is running before features are loaded
-  map.once("load", () => {
-    const features = map.queryRenderedFeatures(null, { layers: ["cities"] });
-    console.log('Rendered features:', features);
-    features.forEach(feature => {
-      map.T(feature, {
-        duration: 1000,
-        delay: Math.random() * 1000,
-        ease: "easeOutElastic",
-        paint: {
-          "circle-radius": [0, 8]
-        }
-      });
-    });
-  });
 
   map.on('sourcedata', (e) => {
-    console.log('sourcedata', e);
+    if (e.sourceId === 'cities' && e.isSourceLoaded) {
+      const features = map.queryRenderedFeatures(null, { layers: ["cities"] });
+      features.forEach(feature => {
+        // console.log('feature', feature);
+        map.T(feature, {
+          duration: 2000,
+          delay: Math.random() * 5000,  
+          ease: "bounce",
+          paint: {
+            "circle-radius": [8, 0]
+          }
+        });
+      });
+    }
   })
 }); 
