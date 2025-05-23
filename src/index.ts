@@ -91,12 +91,20 @@ export function init(map: Map): void {
       const [oldStyle, newStyle] = options?.paint?.[style] || [0.1, 1];
       const kebabStyle = camelToKebab(style);
 
+      console.log('Transition setup:', {
+        style,
+        kebabStyle,
+        feature,
+        currentPaint: map.getPaintProperty(feature.layer.id, kebabStyle)
+      });
+
       // Set up the layer to use feature state for style
       const currentPaint = map.getPaintProperty(
         feature.layer.id,
         kebabStyle
       ) as any[];
       if (currentPaint[0] !== "coalesce") {
+        console.log('Setting up coalesce expression for:', kebabStyle);
         map.setPaintProperty(feature.layer.id, kebabStyle, [
           "coalesce",
           ["feature-state", style],

@@ -47,7 +47,7 @@ map.on("load", () => {
     type: "circle",
     source: "cities",
     paint: {
-      "circle-radius": 8,
+      "circle-radius": 0, // Start with radius 0
       "circle-color": "#088",
       "circle-opacity": 0.7,
       "circle-stroke-width": 2,
@@ -66,6 +66,23 @@ map.on("load", () => {
 
   // Add click interaction
   map.on("click", "cities", (e) => {
-    console.log("Clicked on:", e.features[0].properties.name);
+    console.log("Clicked on:", e.features[0]);
+  });
+
+  // Wait for the layer to be rendered before animating
+  // XXX: This is running before features are loaded
+  map.once("render", () => {
+    const features = map.queryRenderedFeatures(null, { layers: ["cities"] });
+    console.log('Rendered features:', features);
+    features.forEach(feature => {
+      map.T(feature, {
+        duration: 1000,
+        delay: Math.random() * 1000,
+        ease: "easeOutElastic",
+        paint: {
+          "circle-radius": [0, 8]
+        }
+      });
+    });
   });
 }); 
