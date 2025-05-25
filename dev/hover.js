@@ -57,7 +57,6 @@ map.on("load", async () => {
       map.T(e.features[0], {
         duration: 500,
         ease: "linear",
-        // delay: Math.random() * 1000,
         paint: {
           "fillOpacity": [originalFillOpacity, 1],
         },

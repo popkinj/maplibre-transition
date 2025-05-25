@@ -41,27 +41,12 @@ map.on("load", async () => {
     const options = {
       duration: 1000,
       ease: 'linear',
-      delay: Math.random() * 1000,
       paint: {
-        "fill-opacity": 1,
+        "fill-opacity": [0.1, 1],
       }
     };
 
-    // Transition the feature
-    map.T(e.features[0], options);
+    map.T(e.features[0], options); // Transition the feature
   });
 
-  // Add hover interaction
-  map.on("mousemove", "provinces", (e) => {
-    const source = e.features[0].source;
-    const layer = e.features[0].layer;
-    const features = map.querySourceFeatures(e.features[0].source);
-    // console.log('layer', layer.paint);
-    // console.log('feature state', e.features[0].state);
-    // console.log('layer style', map.getLayer(layer.id).paint['fill-opacity']);
-  });
-
-  map.on("mouseleave", "provinces", () => {
-    // console.log('Mouseleave');
-  });
 });

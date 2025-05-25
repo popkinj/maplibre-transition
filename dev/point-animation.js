@@ -80,7 +80,7 @@ map.on("load", () => {
           delay: Math.random() * 5000,  
           ease: "bounce",
           paint: {
-            "circle-radius": [8, 0]
+            "circle-radius": [0, 8]
           }
         });
       });
