@@ -51,7 +51,7 @@ map.on("load", () => {
       "circle-color": "#088",
       "circle-opacity": 0.9,
       "circle-stroke-width": 0,
-      "circle-stroke-color": "#fff"
+      "circle-stroke-color": "rgba(255, 255, 255, 0.9)"
     }
   });
 
@@ -76,7 +76,7 @@ map.on("load", () => {
         duration: 200,
         ease: "exp",
         paint: {
-          "circle-stroke-width": [0, 5]
+          "circle-stroke-width": [0, 8]
         }
       });
     }
@@ -110,7 +110,7 @@ map.on("load", () => {
           delay: Math.random() * 1000,  
           ease: "bounce",
           paint: {
-            "circle-radius": [0, 10] // Transition from 0 to 8
+            "circle-radius": [0, 16] // Transition from 0 to 8
           }
         });
       });
