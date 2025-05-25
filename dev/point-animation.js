@@ -49,19 +49,46 @@ map.on("load", () => {
     paint: {
       "circle-radius": 0, // Start with radius 0
       "circle-color": "#088",
-      "circle-opacity": 0.7,
-      "circle-stroke-width": 2,
-      "circle-stroke-color": "#000"
+      "circle-opacity": 0.9,
+      "circle-stroke-width": 0,
+      "circle-stroke-color": "#fff"
     }
   });
 
   // Add hover interaction
+  let hoverCity;
+
+  const unhover = (feature) => {
+    map.T(feature, {
+      duration: 200,
+      ease: "linear",
+      paint: {
+        "circle-stroke-width": [5, 0]
+      }
+    });
+  };
+
   map.on("mousemove", "cities", (e) => {
-    console.log("Hovering over:", e.features[0].properties.name);
+    if (e.features[0].id !== hoverCity?.id) {
+      if (hoverCity) unhover(hoverCity);
+      hoverCity = e.features[0];
+      map.T(e.features[0], {
+        duration: 200,
+        ease: "exp",
+        paint: {
+          "circle-stroke-width": [0, 5]
+        }
+      });
+    }
   });
 
   map.on("mouseleave", "cities", () => {
-    console.log("Mouse left city layer");
+    const feature = map
+      .queryRenderedFeatures(null, { layers: ["cities"] })
+      .find((f) => f.id === hoverCity?.id);
+
+    if (hoverCity && feature) unhover(feature);
+    hoverCity = null;
   });
 
   // Add click interaction
@@ -69,18 +96,21 @@ map.on("load", () => {
     console.log("Clicked on:", e.features[0]);
   });
 
+  // Keep track of whether the transition has started
+  // This is because the sourcedata event can be called multiple times
+  let hasStartedTransition = false;
 
   map.on('sourcedata', (e) => {
-    if (e.sourceId === 'cities' && e.isSourceLoaded) {
+    if (e.sourceId === 'cities' && e.isSourceLoaded && !hasStartedTransition) {
+      hasStartedTransition = true;
       const features = map.queryRenderedFeatures(null, { layers: ["cities"] });
       features.forEach(feature => {
-        // console.log('feature', feature);
         map.T(feature, {
-          duration: 2000,
-          delay: Math.random() * 5000,  
+          duration: 1000,
+          delay: Math.random() * 1000,  
           ease: "bounce",
           paint: {
-            "circle-radius": [0, 8]
+            "circle-radius": [0, 10] // Transition from 0 to 8
           }
         });
       });
