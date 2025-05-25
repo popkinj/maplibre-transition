@@ -103,7 +103,7 @@ map.on("load", () => {
   const unhover = (feature) => {
     map.T(feature, {
       duration: 200,
-      ease: "linear",
+      ease: "cubic",
       paint: {
         "circle-stroke-width": [5, 0],
       },
@@ -116,7 +116,7 @@ map.on("load", () => {
       hoverCity = e.features[0];
       map.T(e.features[0], {
         duration: 200,
-        ease: "exp",
+        ease: "cubic",
         paint: {
           "circle-stroke-width": [0, 8],
         },
