@@ -35,7 +35,7 @@ map.on("load", () => {
       "circle-radius": 0, // Start with radius 0
       "circle-color": "#c2523c",
       "circle-opacity": 1,
-      "circle-stroke-width": 0,
+      "circle-stroke-width": 2,
       "circle-stroke-color": "rgba(255, 255, 255, 0.9)",
     },
   });
@@ -48,7 +48,7 @@ map.on("load", () => {
       "circle-radius": 0, // Start with radius 0
       "circle-color": "#4d5799",
       "circle-opacity": 1,
-      "circle-stroke-width": 0,
+      "circle-stroke-width": 2,
       "circle-stroke-color": "rgba(255, 255, 255, 0.9)",
     },
   });
@@ -57,11 +57,12 @@ map.on("load", () => {
   let hoverCity;
 
   const unhover = (feature) => {
+    const baseRadius = feature.properties.isCapital ? 8 : 6;
     map.T(feature, {
-      duration: 100,
-      ease: "linear",
+      duration: 600,
+      ease: "elastic",
       paint: {
-        "circle-stroke-width": [5, 0],
+        "circle-radius": [12, baseRadius],
       },
     });
   };
@@ -70,11 +71,13 @@ map.on("load", () => {
     if (e.features[0].id !== hoverCity?.id) {
       if (hoverCity) unhover(hoverCity);
       hoverCity = e.features[0];
+      
+      const baseRadius = e.features[0].properties.isCapital ? 8 : 6;
       map.T(e.features[0], {
-        duration: 200,
-        ease: "cubic",
+        duration: 600,
+        ease: "elastic",
         paint: {
-          "circle-stroke-width": [0, 8],
+          "circle-radius": [baseRadius, 12],
         },
       });
     }
