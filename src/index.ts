@@ -1,7 +1,19 @@
 import { Map } from "maplibre-gl";
 import { scaleLinear } from "d3-scale";
 import * as d3Ease from "d3-ease";
+import { interpolateRgb, interpolateHsl, interpolateLab } from "d3-interpolate";
+import { rgb, hsl, lab } from "d3-color";
 
+/**
+ * Configuration options for feature transitions.
+ * @interface TransitionOptions
+ * @property {number} [duration=1000] - Duration of the transition in milliseconds
+ * @property {string} [ease="linear"] - Easing function to use for the transition
+ * @property {number} [delay=0] - Delay before starting the transition in milliseconds
+ * @property {Record<string, [number, number]>} [paint] - Paint properties to transition, mapping property names to [start, end] values
+ * @property {() => void} [onComplete] - Callback function to execute when transition completes
+ * @property {() => void} [onStart] - Callback function to execute when transition starts
+ */
 interface TransitionOptions {
   duration?: number;
   ease?:
@@ -20,14 +32,25 @@ interface TransitionOptions {
   onStart?: () => void;
 }
 
+/**
+ * Represents the current state of a feature's transition properties.
+ * @interface TransitionState
+ * @property {number} [key: string] - Maps style property names to their current values
+ */
 interface TransitionState {
   [key: string]: number;
 }
 
+/**
+ * Collection of d3 scales used for transitioning different properties.
+ * @interface TransitionScales
+ * @property {any} [key: string] - Maps transition keys to their corresponding d3 scales
+ */
 interface TransitionScales {
   [key: string]: any;
 }
 
+// Extend MapLibre's Map interface to include our transition functionality
 declare module "maplibre-gl" {
   interface Map {
     T: {
@@ -39,16 +62,62 @@ declare module "maplibre-gl" {
   }
 }
 
-// Helper function to convert camelCase to kebab-case
+/**
+ * Converts a camelCase string to kebab-case.
+ * @param {string} str - The string to convert
+ * @returns {string} The converted kebab-case string
+ */
 function camelToKebab(str: string): string {
   return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
 /**
- * Animates a feature's style transition over time.
- * @param map - The MapLibre map instance
- * @param feature - The feature to animate
- * @param keyName - Unique identifier for the transition
+ * Detects if a value is a color string and returns the appropriate interpolator
+ * @param {string | number} start - The starting value
+ * @param {string | number} end - The ending value
+ * @returns {Function|null} The appropriate interpolator function or null if not a color
+ */
+function getColorInterpolator(start: string | number, end: string | number): ((t: number) => string) | null {
+  // Only try color interpolation if both values are strings
+  if (typeof start !== 'string' || typeof end !== 'string') {
+    return null;
+  }
+
+  try {
+    // Try parsing as RGB
+    const startRgb = rgb(start);
+    const endRgb = rgb(end);
+    if (startRgb && endRgb) {
+      return interpolateRgb(startRgb, endRgb);
+    }
+
+    // Try parsing as HSL
+    const startHsl = hsl(start);
+    const endHsl = hsl(end);
+    if (startHsl && endHsl) {
+      return interpolateHsl(startHsl, endHsl);
+    }
+
+    // Try parsing as LAB
+    const startLab = lab(start);
+    const endLab = lab(end);
+    if (startLab && endLab) {
+      return interpolateLab(startLab, endLab);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Animates a feature's style transition over time using requestAnimationFrame.
+ * This function handles the actual animation loop and updates feature states.
+ * 
+ * @param {Map} map - The MapLibre map instance
+ * @param {any} feature - The feature to animate
+ * @param {string} keyName - Unique identifier for the transition
  */
 function animateFeature(map: Map, feature: any, keyName: string) {
   const now = Date.now();
@@ -101,15 +170,19 @@ function animateFeature(map: Map, feature: any, keyName: string) {
 
 /**
  * Initializes the transition plugin on a MapLibre map instance.
- * Adds transition-related functionality to the map object.
- * @param map - The MapLibre map instance to initialize
+ * This function adds the transition functionality to the map object and sets up
+ * the necessary methods and properties.
+ * 
+ * @param {Map} map - The MapLibre map instance to initialize
  */
 export function init(map: Map): void {
   map.T = Object.assign(
     /**
      * Transitions a feature's style to a new value.
-     * @param feature - The feature to transition
-     * @param options - Transition options including duration, delay, and target paint properties
+     * This is the main function that users will call to animate feature styles.
+     * 
+     * @param {any} feature - The feature to transition
+     * @param {TransitionOptions} [options] - Configuration options for the transition
      */
     function (feature: any, options?: TransitionOptions) {
       const { duration = 1000, delay = 0, ease = "linear" } = options || {};
@@ -142,18 +215,32 @@ export function init(map: Map): void {
       // Create scales for each property
       const scales: TransitionScales = {};
       Object.entries(paintProperties).forEach(([style, [oldStyle, newStyle]]) => {
-        const scale = scaleLinear()
-          .domain([now, now + duration])
-          .range([oldStyle, newStyle]);
+        const colorInterpolator = getColorInterpolator(oldStyle, newStyle);
+        
+        if (colorInterpolator) {
+          // Use color interpolation for color values
+          const wrappedScale = (t: number) => {
+            const progress = (t - now) / duration;
+            const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
+            return colorInterpolator(easedProgress);
+          };
+          Object.assign(wrappedScale, scaleLinear().domain([now, now + duration]).range([oldStyle, newStyle]));
+          scales[`${feature.id}-${style}`] = wrappedScale;
+        } else {
+          // Use regular linear interpolation for non-color values
+          const scale = scaleLinear()
+            .domain([now, now + duration])
+            .range([oldStyle, newStyle]);
 
-        const wrappedScale = (t: number) => {
-          const progress = (t - now) / duration;
-          const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-          return oldStyle + easedProgress * (newStyle - oldStyle);
-        };
+          const wrappedScale = (t: number) => {
+            const progress = (t - now) / duration;
+            const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
+            return oldStyle + easedProgress * (newStyle - oldStyle);
+          };
 
-        Object.assign(wrappedScale, scale);
-        scales[`${feature.id}-${style}`] = wrappedScale;
+          Object.assign(wrappedScale, scale);
+          scales[`${feature.id}-${style}`] = wrappedScale;
+        }
       });
 
       // Set the initial feature state
@@ -195,14 +282,17 @@ export function init(map: Map): void {
       });
     },
     {
+      /** Set of all active transitions */
       transitions: new Set(),
 
       /**
        * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
-       * @param scale - The original d3 scale to reverse
-       * @param currentTime - The current timestamp
-       * @param easeFn - The easing function to use for the reverse transition
-       * @returns A new scale that will transition back to the original value
+       * This is used when a new transition is started while an existing one is still in progress.
+       * 
+       * @param {any} scale - The original d3 scale to reverse
+       * @param {number} currentTime - The current timestamp
+       * @param {any} easeFn - The easing function to use for the reverse transition
+       * @returns {any} A new scale that will transition back to the original value
        */
       reverseScale: (scale: any, currentTime: number, easeFn: any) => {
         const [startTime, endTime] = scale.domain();
@@ -233,8 +323,10 @@ export function init(map: Map): void {
 
       /**
        * Lists all active transitions for a specific layer.
-       * @param layerId - The ID of the layer to check for transitions
-       * @returns Array of transition objects for the specified layer
+       * This is useful for debugging and monitoring transition states.
+       * 
+       * @param {string} layerId - The ID of the layer to check for transitions
+       * @returns {any[]} Array of transition objects for the specified layer
        */
       listLayerTransitions: (layerId: string) => {
         const layer = map.getLayer(layerId);
@@ -250,7 +342,6 @@ export function init(map: Map): void {
               const feature = map
                 .querySourceFeatures(sourceId)
                 .find((f) => key.startsWith(`${f.id}-`));
-              // Since we already have the layerId parameter, we don't need to check feature.layer.id
               return feature !== undefined;
             });
           }
@@ -261,7 +352,10 @@ export function init(map: Map): void {
   );
 }
 
-// Export a default object that can be used as a plugin
+/**
+ * Default export object that can be used as a plugin.
+ * This allows the library to be used as a MapLibre GL plugin.
+ */
 export default {
   init,
 };
