@@ -58,8 +58,8 @@ map.on("load", () => {
 
   const unhover = (feature) => {
     map.T(feature, {
-      duration: 200,
-      ease: "cubic",
+      duration: 100,
+      ease: "linear",
       paint: {
         "circle-stroke-width": [5, 0],
       },
@@ -123,10 +123,10 @@ map.on("load", () => {
       capitalFeatures.forEach((feature) => {
         map.T(feature, {
           duration: 1000,
-          delay: Math.random() * 1000,
+          delay: Math.random() * 1000 + 2000,
           ease: "bounce",
           paint: {
-            "circle-radius": [0, 16],
+            "circle-radius": [0, 8],
           },
         });
       });
@@ -140,10 +140,10 @@ map.on("load", () => {
         majorCityFeatures.forEach((feature) => {
           map.T(feature, {
             duration: 1000,
-            delay: Math.random() * 1000 + 5000,
+            delay: Math.random() * 1000,
             ease: "bounce",
             paint: {
-              "circle-radius": [0, 12], // Slightly smaller than capitals
+              "circle-radius": [0, 6], // Slightly smaller than capitals
             },
           });
         });
