@@ -35,32 +35,6 @@ map.T(feature, {
 });
 ```
 
-## Color Transitions
-
-The plugin supports smooth color transitions using D3's color interpolation. It automatically detects color values and uses the appropriate color space for interpolation:
-
-```javascript
-map.T(feature, {
-  duration: 1000,
-  ease: "linear",
-  paint: {
-    "fill-color": ["#ff0000", "#00ff00"],  // RGB color transition
-    "stroke-color": ["hsl(0,100%,50%)", "hsl(120,100%,50%)"],  // HSL color transition
-    "circle-color": ["lab(50,100,0)", "lab(50,0,100)"]  // LAB color transition
-  }
-});
-```
-
-The plugin supports the following color formats:
-- RGB colors (e.g., "#ff0000", "rgb(255,0,0)")
-- HSL colors (e.g., "hsl(0,100%,50%)")
-- LAB colors (e.g., "lab(50,100,0)")
-
-Each color format uses its appropriate interpolation method:
-- RGB interpolation for RGB colors
-- HSL interpolation for HSL colors (better for hue transitions)
-- LAB interpolation for LAB colors (perceptually uniform)
-
 ## Transitioning Multiple Properties
 
 You can transition multiple style properties simultaneously by specifying them in the `paint` object:
@@ -73,7 +47,6 @@ map.T(feature, {
     "circle-radius": [8, 12],
     "circle-stroke-width": [2, 4],
     "circle-opacity": [1, 0.2],
-    "circle-color": ["#ff0000", "#00ff00"]  // Color transition
   }
 });
 ```
@@ -104,6 +77,32 @@ map.T(feature, {
   },
 });
 ```
+
+## Color Transitions
+
+The plugin supports smooth color transitions using D3's color interpolation. It automatically detects color values and uses the appropriate color space for interpolation:
+
+```javascript
+map.T(feature, {
+  duration: 1000,
+  ease: "linear",
+  paint: {
+    "fill-color": ["#ff0000", "#00ff00"],  // RGB color transition
+    "fill-outline-color": ["hsl(0,100%,50%)", "hsl(120,100%,50%)"],  // HSL color transition
+    "fill-opacity": [0.1, 1]  // LAB color transition
+  }
+});
+```
+
+The plugin supports the following color formats:
+- RGB colors (e.g., "#ff0000", "rgb(255,0,0)")
+- HSL colors (e.g., "hsl(0,100%,50%)")
+- LAB colors (e.g., "lab(50,100,0)")
+
+Each color format uses its appropriate interpolation method:
+- RGB interpolation for RGB colors
+- HSL interpolation for HSL colors (better for hue transitions)
+- LAB interpolation for LAB colors (perceptually uniform)
 
 ## Chaining Transitions
 
