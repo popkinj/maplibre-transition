@@ -62,15 +62,16 @@ map.on("load", () => {
       duration: 600,
       ease: "elastic",
       paint: {
-        "circle-radius": [12, baseRadius],
+        "circle-radius": [12, baseRadius]
       },
       onComplete: () => {
         map.T(feature, {
           duration: 300,
           ease: "linear",
           paint: {
-            "circle-opacity": [0.2, 1],
-          },
+            "circle-stroke-width": [4, 2],
+            "circle-opacity": [0.2, 1]
+          }
         });
       }
     });
@@ -87,15 +88,16 @@ map.on("load", () => {
         duration: 600,
         ease: "elastic",
         paint: {
-          "circle-radius": [baseRadius, 12],
+          "circle-radius": [baseRadius, 12]
         },
         onComplete: () => {
           map.T(feature, {
             duration: 300,
             ease: "linear",
             paint: {
-              "circle-opacity": [1, 0.2],
-            },
+              "circle-stroke-width": [2, 4],
+              "circle-opacity": [1, 0.2]
+            }
           });
         }
       });

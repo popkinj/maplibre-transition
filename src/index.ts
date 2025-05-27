@@ -15,10 +15,19 @@ interface TransitionOptions {
     | "poly"
     | "sin";
   delay?: number;
-  paint?: Record<string, any>;
+  paint?: Record<string, [number, number]>;
   onComplete?: () => void;
   onStart?: () => void;
 }
+
+interface TransitionState {
+  [key: string]: number;
+}
+
+interface TransitionScales {
+  [key: string]: any;
+}
+
 declare module "maplibre-gl" {
   interface Map {
     T: {
@@ -53,9 +62,16 @@ function animateFeature(map: Map, feature: any, keyName: string) {
   const endTime = scale.domain()[1];
   if (now >= endTime) {
     // Transition is complete - set final value and remove from transitions
+    const finalState: TransitionState = {};
+    Object.keys(transition).forEach(key => {
+      if (key !== 'options') {
+        const styleName = key.split('-').slice(1).join('-');
+        finalState[styleName] = transition[key].range()[1];
+      }
+    });
     map.setFeatureState(
       { source: feature.source, id: feature.id },
-      { [style]: scale.range()[1] }
+      finalState
     );
     map.T.transitions.delete(transition);
     
@@ -65,10 +81,17 @@ function animateFeature(map: Map, feature: any, keyName: string) {
       options.onComplete();
     }
   } else {
-    // Update current value
+    // Update current values for all properties
+    const currentState: TransitionState = {};
+    Object.keys(transition).forEach(key => {
+      if (key !== 'options') {
+        const styleName = key.split('-').slice(1).join('-');
+        currentState[styleName] = transition[key](now);
+      }
+    });
     map.setFeatureState(
       { source: feature.source, id: feature.id },
-      { [style]: scale(now) }
+      currentState
     );
 
     // Schedule the next tick
@@ -92,67 +115,84 @@ export function init(map: Map): void {
       const { duration = 1000, delay = 0, ease = "linear" } = options || {};
       const now = Date.now() + delay;
 
-      // Get the first paint property from the options
-      const style = Object.keys(options?.paint || {})[0] || "fillOpacity";
-      const [oldStyle, newStyle] = options?.paint?.[style] || [0.1, 1];
-      const kebabStyle = camelToKebab(style);
-
-      // Set up the layer to use feature state for style
-      const currentPaint = map.getPaintProperty(
-        feature.layer.id,
-        kebabStyle
-      ) as any[];
-      if (currentPaint[0] !== "coalesce") {
-        map.setPaintProperty(feature.layer.id, kebabStyle, [
-          "coalesce",
-          ["feature-state", style],
-          oldStyle,
-        ]);
-      }
-
-      const scale = scaleLinear()
-        .domain([now, now + duration])
-        .range([oldStyle, newStyle]);
+      // Get all paint properties from the options
+      const paintProperties = options?.paint || {};
+      
+      // Set up the layer to use feature state for each style
+      Object.entries(paintProperties).forEach(([style, [oldStyle, newStyle]]) => {
+        const kebabStyle = camelToKebab(style);
+        const currentPaint = map.getPaintProperty(
+          feature.layer.id,
+          kebabStyle
+        ) as any[];
+        if (currentPaint[0] !== "coalesce") {
+          map.setPaintProperty(feature.layer.id, kebabStyle, [
+            "coalesce",
+            ["feature-state", style],
+            oldStyle,
+          ]);
+        }
+      });
 
       const easeName = `ease${
         ease.charAt(0).toUpperCase() + ease.slice(1)
       }` as keyof typeof d3Ease;
       const easeFn = d3Ease[easeName] || d3Ease.easeLinear;
 
-      const wrappedScale = (t: number) => {
-        const progress = (t - now) / duration;
-        const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-        return oldStyle + easedProgress * (newStyle - oldStyle);
-      };
+      // Create scales for each property
+      const scales: TransitionScales = {};
+      Object.entries(paintProperties).forEach(([style, [oldStyle, newStyle]]) => {
+        const scale = scaleLinear()
+          .domain([now, now + duration])
+          .range([oldStyle, newStyle]);
 
-      Object.assign(wrappedScale, scale);
+        const wrappedScale = (t: number) => {
+          const progress = (t - now) / duration;
+          const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
+          return oldStyle + easedProgress * (newStyle - oldStyle);
+        };
+
+        Object.assign(wrappedScale, scale);
+        scales[`${feature.id}-${style}`] = wrappedScale;
+      });
 
       // Set the initial feature state
-      map.setFeatureState(feature, { [style]: oldStyle });
+      const initialState: TransitionState = {};
+      Object.entries(paintProperties).forEach(([style, [oldStyle]]) => {
+        initialState[style] = oldStyle;
+      });
+      map.setFeatureState(feature, initialState);
 
-      // Use feature ID for the key to ensure unique transitions per feature
-      const keyName = feature.id + "-" + style;
-
-      // Check if there is an existing transition for this feature
-      const existingTransition = Array.from(map.T.transitions).find(
-        (t) => t[keyName]
+      // Check if there are existing transitions for this feature
+      const existingTransitions = Array.from(map.T.transitions).filter(
+        (t) => Object.keys(t).some(key => key.startsWith(`${feature.id}-`))
       );
-      // If there is an existing transition, reverse it
-      if (existingTransition) {
-        const reversedScale = map.T.reverseScale(
-          existingTransition[keyName],
-          now,
-          easeFn
-        );
-        map.T.transitions.delete(existingTransition);
-        map.T.transitions.add({ [keyName]: reversedScale, options });
+
+      // If there are existing transitions, reverse them
+      if (existingTransitions.length > 0) {
+        existingTransitions.forEach(transition => {
+          const reversedScales: TransitionScales = {};
+          Object.keys(transition).forEach(key => {
+            if (key !== 'options') {
+              reversedScales[key] = map.T.reverseScale(
+                transition[key],
+                now,
+                easeFn
+              );
+            }
+          });
+          map.T.transitions.delete(transition);
+          map.T.transitions.add({ ...reversedScales, options });
+        });
       } else {
-        // Otherwise, add the new transition
-        map.T.transitions.add({ [keyName]: wrappedScale, options });
+        // Otherwise, add the new transitions
+        map.T.transitions.add({ ...scales, options });
       }
 
-      // Start the animation
-      animateFeature(map, feature, keyName);
+      // Start the animation for each property
+      Object.keys(scales).forEach(keyName => {
+        animateFeature(map, feature, keyName);
+      });
     },
     {
       transitions: new Set(),

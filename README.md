@@ -35,6 +35,24 @@ map.T(feature, {
 });
 ```
 
+## Transitioning Multiple Properties
+
+You can transition multiple style properties simultaneously by specifying them in the `paint` object:
+
+```javascript
+map.T(feature, {
+  duration: 1000,
+  ease: "elastic",
+  paint: {
+    "circle-radius": [8, 12],
+    "circle-stroke-width": [2, 4],
+    "circle-opacity": [1, 0.2]
+  }
+});
+```
+
+All specified properties will transition together using the same duration and easing function. This is useful for creating coordinated visual effects.
+
 ## Easing Types
 
 The plugin supports the following easing functions from d3-ease:
@@ -77,12 +95,15 @@ map.T(feature, {
       duration: 300,
       ease: "linear",
       paint: {
-        "circle-opacity": [1, 0.2],
+        "circle-stroke-width": [2, 4],
+        "circle-opacity": [1, 0.2]
       },
     });
   }
 });
 ```
+
+You can combine multiple properties in both the initial and chained transitions. This allows for complex animations where some properties change together, while others follow in sequence.
 
 ## Development
 
