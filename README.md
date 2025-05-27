@@ -134,6 +134,83 @@ map.T(feature, {
 
 You can combine multiple properties in both the initial and chained transitions. This allows for complex animations where some properties change together, while others follow in sequence.
 
+## Advanced Transitions with Multiple Breakpoints
+
+The plugin supports multiple breakpoints in transition arrays, enabling complex animations and color cycles. This feature allows for smooth transitions between multiple states or creating color cycling effects.
+
+### Color Transitions with Multiple Breakpoints
+
+You can specify multiple colors to create smooth color cycles:
+
+```javascript
+map.T(feature, {
+  duration: 3000,
+  ease: 'elastic',
+  paint: {
+    "fill-color": [
+      "#088",    // Start with green
+      "#f00",    // Then red
+      "#00f",    // Then blue
+      "#ff0",    // Then yellow
+      "#f0f",    // Then magenta
+      "#0ff",    // Then cyan
+      "#088"     // Back to green
+    ]
+  }
+});
+```
+
+The plugin automatically interpolates between adjacent colors, creating smooth transitions. The interpolation respects the color space (RGB, HSL, or LAB) of the input colors.
+
+### Numeric Transitions with Multiple Breakpoints
+
+Multiple breakpoints also work for numeric properties, creating piecewise linear interpolations:
+
+```javascript
+map.T(feature, {
+  duration: 2000,
+  ease: 'cubic',
+  paint: {
+    "circle-radius": [0, 10, 5, 15, 8]  // Complex size animation
+  }
+});
+```
+
+This creates a smooth transition that:
+1. Grows from 0 to 10
+2. Shrinks to 5
+3. Grows to 15
+4. Finally settles at 8
+
+### Best Practices for Multiple Breakpoints
+
+1. **Duration**: Use longer durations (2000-3000ms) when working with multiple breakpoints to make transitions more visible and smooth.
+
+2. **Easing Selection**:
+   - `elastic` or `bounce`: Best for playful, dynamic effects
+   - `cubic` or `sin`: Ideal for smooth, professional transitions
+   - `linear`: Use for precise, mechanical movements
+
+3. **Color Space Considerations**:
+   - RGB: Best for direct color transitions
+   - HSL: Better for hue-based transitions
+   - LAB: Best for perceptually uniform transitions
+
+4. **Performance**: While multiple breakpoints are supported, consider the number of breakpoints you use. More breakpoints mean more interpolation calculations.
+
+Example combining multiple properties with breakpoints:
+```javascript
+map.T(feature, {
+  duration: 3000,
+  ease: 'elastic',
+  paint: {
+    "fill-color": ["#088", "#f00", "#00f", "#088"],
+    "circle-radius": [5, 15, 10, 20],
+    "fill-opacity": [1, 0.5, 0.8, 1]
+  }
+});
+```
+
 ## Development
 
 ```bash

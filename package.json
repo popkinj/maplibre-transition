@@ -1,6 +1,6 @@
 {
   "name": "maplibre-transition",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A MapLibre GL JS plugin for smooth transitions between map styles.",
   "type": "module",
   "main": "dist/index.js",
@@ -54,7 +54,9 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
+    "d3-color": "^3.1.0",
     "d3-ease": "^3.0.1",
+    "d3-interpolate": "^3.0.1",
     "d3-scale": "^4.0.2"
   }
 }

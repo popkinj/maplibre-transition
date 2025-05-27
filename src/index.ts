@@ -1,7 +1,7 @@
 import { Map } from "maplibre-gl";
 import { scaleLinear } from "d3-scale";
 import * as d3Ease from "d3-ease";
-import { interpolateRgb, interpolateHsl, interpolateLab } from "d3-interpolate";
+import { interpolateRgb, interpolateHsl, interpolateLab, interpolateArray } from "d3-interpolate";
 import { rgb, hsl, lab } from "d3-color";
 
 /**
@@ -10,7 +10,7 @@ import { rgb, hsl, lab } from "d3-color";
  * @property {number} [duration=1000] - Duration of the transition in milliseconds
  * @property {string} [ease="linear"] - Easing function to use for the transition
  * @property {number} [delay=0] - Delay before starting the transition in milliseconds
- * @property {Record<string, [number, number]>} [paint] - Paint properties to transition, mapping property names to [start, end] values
+ * @property {Record<string, (string | number)[]>} [paint] - Paint properties to transition, mapping property names to arrays of values
  * @property {() => void} [onComplete] - Callback function to execute when transition completes
  * @property {() => void} [onStart] - Callback function to execute when transition starts
  */
@@ -27,7 +27,7 @@ interface TransitionOptions {
     | "poly"
     | "sin";
   delay?: number;
-  paint?: Record<string, [number, number]>;
+  paint?: Record<string, (string | number)[]>;
   onComplete?: () => void;
   onStart?: () => void;
 }
@@ -35,10 +35,10 @@ interface TransitionOptions {
 /**
  * Represents the current state of a feature's transition properties.
  * @interface TransitionState
- * @property {number} [key: string] - Maps style property names to their current values
+ * @property {string | number} [key: string] - Maps style property names to their current values
  */
 interface TransitionState {
-  [key: string]: number;
+  [key: string]: string | number;
 }
 
 /**
@@ -72,37 +72,54 @@ function camelToKebab(str: string): string {
 }
 
 /**
- * Detects if a value is a color string and returns the appropriate interpolator
- * @param {string | number} start - The starting value
- * @param {string | number} end - The ending value
- * @returns {Function|null} The appropriate interpolator function or null if not a color
+ * Detects if values are colors and returns the appropriate interpolator
+ * @param {Array<string | number>} values - Array of values to interpolate between
+ * @returns {Function|null} The appropriate interpolator function or null if not colors
  */
-function getColorInterpolator(start: string | number, end: string | number): ((t: number) => string) | null {
-  // Only try color interpolation if both values are strings
-  if (typeof start !== 'string' || typeof end !== 'string') {
+function getColorInterpolator(values: (string | number)[]): ((t: number) => string) | null {
+  // Only try color interpolation if all values are strings
+  if (!values.every(v => typeof v === 'string')) {
     return null;
   }
 
   try {
     // Try parsing as RGB
-    const startRgb = rgb(start);
-    const endRgb = rgb(end);
-    if (startRgb && endRgb) {
-      return interpolateRgb(startRgb, endRgb);
+    const rgbValues = values.map(v => rgb(v as string));
+    if (rgbValues.every(v => v)) {
+      return (t: number) => {
+        const clampedT = Math.min(Math.max(t, 0), 1);
+        if (clampedT === 1) return rgbValues[rgbValues.length - 1].toString();
+        const i = Math.floor(clampedT * (rgbValues.length - 1));
+        const j = Math.min(i + 1, rgbValues.length - 1);
+        const localT = (clampedT * (rgbValues.length - 1)) % 1;
+        return interpolateRgb(rgbValues[i], rgbValues[j])(localT);
+      };
     }
 
     // Try parsing as HSL
-    const startHsl = hsl(start);
-    const endHsl = hsl(end);
-    if (startHsl && endHsl) {
-      return interpolateHsl(startHsl, endHsl);
+    const hslValues = values.map(v => hsl(v as string));
+    if (hslValues.every(v => v)) {
+      return (t: number) => {
+        const clampedT = Math.min(Math.max(t, 0), 1);
+        if (clampedT === 1) return hslValues[hslValues.length - 1].toString();
+        const i = Math.floor(clampedT * (hslValues.length - 1));
+        const j = Math.min(i + 1, hslValues.length - 1);
+        const localT = (clampedT * (hslValues.length - 1)) % 1;
+        return interpolateHsl(hslValues[i], hslValues[j])(localT);
+      };
     }
 
     // Try parsing as LAB
-    const startLab = lab(start);
-    const endLab = lab(end);
-    if (startLab && endLab) {
-      return interpolateLab(startLab, endLab);
+    const labValues = values.map(v => lab(v as string));
+    if (labValues.every(v => v)) {
+      return (t: number) => {
+        const clampedT = Math.min(Math.max(t, 0), 1);
+        if (clampedT === 1) return labValues[labValues.length - 1].toString();
+        const i = Math.floor(clampedT * (labValues.length - 1));
+        const j = Math.min(i + 1, labValues.length - 1);
+        const localT = (clampedT * (labValues.length - 1)) % 1;
+        return interpolateLab(labValues[i], labValues[j])(localT);
+      };
     }
 
     return null;
@@ -129,13 +146,15 @@ function animateFeature(map: Map, feature: any, keyName: string) {
 
   const scale = transition[keyName];
   const endTime = scale.domain()[1];
+  
   if (now >= endTime) {
     // Transition is complete - set final value and remove from transitions
     const finalState: TransitionState = {};
     Object.keys(transition).forEach(key => {
       if (key !== 'options') {
         const styleName = key.split('-').slice(1).join('-');
-        finalState[styleName] = transition[key].range()[1];
+        const values = transition.options.paint[styleName];
+        finalState[styleName] = values[values.length - 1];
       }
     });
     map.setFeatureState(
@@ -192,7 +211,7 @@ export function init(map: Map): void {
       const paintProperties = options?.paint || {};
       
       // Set up the layer to use feature state for each style
-      Object.entries(paintProperties).forEach(([style, [oldStyle, newStyle]]) => {
+      Object.entries(paintProperties).forEach(([style, values]) => {
         const kebabStyle = camelToKebab(style);
         const currentPaint = map.getPaintProperty(
           feature.layer.id,
@@ -202,7 +221,7 @@ export function init(map: Map): void {
           map.setPaintProperty(feature.layer.id, kebabStyle, [
             "coalesce",
             ["feature-state", style],
-            oldStyle,
+            values[0],
           ]);
         }
       });
@@ -214,8 +233,8 @@ export function init(map: Map): void {
 
       // Create scales for each property
       const scales: TransitionScales = {};
-      Object.entries(paintProperties).forEach(([style, [oldStyle, newStyle]]) => {
-        const colorInterpolator = getColorInterpolator(oldStyle, newStyle);
+      Object.entries(paintProperties).forEach(([style, values]) => {
+        const colorInterpolator = getColorInterpolator(values);
         
         if (colorInterpolator) {
           // Use color interpolation for color values
@@ -224,18 +243,20 @@ export function init(map: Map): void {
             const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
             return colorInterpolator(easedProgress);
           };
-          Object.assign(wrappedScale, scaleLinear().domain([now, now + duration]).range([oldStyle, newStyle]));
+          Object.assign(wrappedScale, scaleLinear().domain([now, now + duration]).range([0, 1]).clamp(true));
           scales[`${feature.id}-${style}`] = wrappedScale;
         } else {
           // Use regular linear interpolation for non-color values
+          const numericValues = values.map(v => Number(v));
           const scale = scaleLinear()
             .domain([now, now + duration])
-            .range([oldStyle, newStyle]);
+            .range(numericValues)
+            .clamp(true);
 
           const wrappedScale = (t: number) => {
             const progress = (t - now) / duration;
             const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-            return oldStyle + easedProgress * (newStyle - oldStyle);
+            return scale(easedProgress);
           };
 
           Object.assign(wrappedScale, scale);
@@ -245,8 +266,8 @@ export function init(map: Map): void {
 
       // Set the initial feature state
       const initialState: TransitionState = {};
-      Object.entries(paintProperties).forEach(([style, [oldStyle]]) => {
-        initialState[style] = oldStyle;
+      Object.entries(paintProperties).forEach(([style, values]) => {
+        initialState[style] = typeof values[0] === 'string' ? values[0] : Number(values[0]);
       });
       map.setFeatureState(feature, initialState);
 
