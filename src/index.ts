@@ -58,6 +58,12 @@ function animateFeature(map: Map, feature: any, keyName: string) {
       { [style]: scale.range()[1] }
     );
     map.T.transitions.delete(transition);
+    
+    // Call onComplete callback if it exists
+    const options = transition.options;
+    if (options?.onComplete) {
+      options.onComplete();
+    }
   } else {
     // Update current value
     map.setFeatureState(
@@ -97,7 +103,6 @@ export function init(map: Map): void {
         kebabStyle
       ) as any[];
       if (currentPaint[0] !== "coalesce") {
-        console.log('Setting up coalesce expression for:', kebabStyle);
         map.setPaintProperty(feature.layer.id, kebabStyle, [
           "coalesce",
           ["feature-state", style],
@@ -140,10 +145,10 @@ export function init(map: Map): void {
           easeFn
         );
         map.T.transitions.delete(existingTransition);
-        map.T.transitions.add({ [keyName]: reversedScale });
+        map.T.transitions.add({ [keyName]: reversedScale, options });
       } else {
         // Otherwise, add the new transition
-        map.T.transitions.add({ [keyName]: wrappedScale });
+        map.T.transitions.add({ [keyName]: wrappedScale, options });
       }
 
       // Start the animation
