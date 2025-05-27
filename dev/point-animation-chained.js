@@ -64,21 +64,40 @@ map.on("load", () => {
       paint: {
         "circle-radius": [12, baseRadius],
       },
+      onComplete: () => {
+        map.T(feature, {
+          duration: 300,
+          ease: "linear",
+          paint: {
+            "circle-opacity": [0.2, 1],
+          },
+        });
+      }
     });
   };
 
   const handleHover = (e) => {
-    if (e.features[0].id !== hoverCity?.id) {
+    const feature = e.features[0];
+    if (feature.id !== hoverCity?.id) {
       if (hoverCity) unhover(hoverCity);
-      hoverCity = e.features[0];
+      hoverCity = feature;
       
-      const baseRadius = e.features[0].properties.isCapital ? 8 : 6;
-      map.T(e.features[0], {
+      const baseRadius = feature.properties.isCapital ? 8 : 6;
+      map.T(feature, {
         duration: 600,
         ease: "elastic",
         paint: {
           "circle-radius": [baseRadius, 12],
         },
+        onComplete: () => {
+          map.T(feature, {
+            duration: 300,
+            ease: "linear",
+            paint: {
+              "circle-opacity": [1, 0.2],
+            },
+          });
+        }
       });
     }
   };
