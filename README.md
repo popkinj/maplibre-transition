@@ -60,6 +60,30 @@ map.T(feature, {
 });
 ```
 
+## Chaining Transitions
+
+You can chain transitions using the `onComplete` callback. This is useful for creating complex animations that need to happen in sequence:
+
+```javascript
+map.T(feature, {
+  duration: 600,
+  ease: "elastic",
+  paint: {
+    "circle-radius": [8, 12],
+  },
+  onComplete: () => {
+    // This transition will start after the radius transition completes
+    map.T(feature, {
+      duration: 300,
+      ease: "linear",
+      paint: {
+        "circle-opacity": [1, 0.2],
+      },
+    });
+  }
+});
+```
+
 ## Development
 
 ```bash
