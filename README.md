@@ -42,7 +42,6 @@ You can transition multiple style properties simultaneously by specifying them i
 ```javascript
 map.T(feature, {
   duration: 1000,
-  ease: "elastic",
   paint: {
     "circle-radius": [8, 12],
     "circle-stroke-width": [2, 4],
