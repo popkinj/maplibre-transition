@@ -104,7 +104,7 @@ map.transition(feature, {
   paint: {
     "fill-color": ["#ff0000", "#00ff00"],  // RGB color transition
     "fill-outline-color": ["hsl(0,100%,50%)", "hsl(120,100%,50%)"],  // HSL color transition
-    "fill-opacity": [0.1, 1]  // LAB color transition
+    "fill-opacity": [0.1, 1] 
   }
 });
 ```
