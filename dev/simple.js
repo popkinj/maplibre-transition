@@ -46,7 +46,7 @@ map.on("load", async () => {
       }
     };
 
-    map.T(e.features[0], options); // Transition the feature
+    map.transition(e.features[0], options); // Transition the feature
   });
 
 });

@@ -101,7 +101,7 @@ map.on("load", () => {
   let hoverCity;
 
   const unhover = (feature) => {
-    map.T(feature, {
+    map.transition(feature, {
       duration: 200,
       ease: "cubic",
       paint: {
@@ -114,7 +114,7 @@ map.on("load", () => {
     if (e.features[0].id !== hoverCity?.id) {
       if (hoverCity) unhover(hoverCity);
       hoverCity = e.features[0];
-      map.T(e.features[0], {
+      map.transition(e.features[0], {
         duration: 200,
         ease: "cubic",
         paint: {
@@ -147,7 +147,7 @@ map.on("load", () => {
       hasStartedTransition = true;
       const features = map.queryRenderedFeatures(null, { layers: ["cities"] });
       features.forEach((feature) => {
-        map.T(feature, {
+        map.transition(feature, {
           duration: 1000,
           delay: Math.random() * 1000,
           ease: "bounce",

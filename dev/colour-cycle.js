@@ -52,7 +52,7 @@ map.on("load", async () => {
         ]
       }
     };
-    map.T(e.features[0], options);
+    map.transition(e.features[0], options);
   });
 
   // Add a title to the map

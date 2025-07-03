@@ -24,7 +24,17 @@ const map = new maplibregl.Map({
 // Initialize the plugin
 MaplibreTransition.init(map);
 
-// Use the plugin
+// Use the plugin with either method
+map.transition(feature, {
+  duration: 1000,
+  delay: 500,
+  ease: "linear",
+  paint: {
+    "fill-opacity": [0.1, 1],
+  },
+});
+
+// Or use the shorthand method (deprecated)
 map.T(feature, {
   duration: 1000,
   delay: 500,
@@ -35,12 +45,14 @@ map.T(feature, {
 });
 ```
 
+> **Note**: The `map.T` method is deprecated and will be removed in a future version. Please use `map.transition` for new code.
+
 ## Transitioning Multiple Properties
 
 You can transition multiple style properties simultaneously by specifying them in the `paint` object:
 
 ```javascript
-map.T(feature, {
+map.transition(feature, {
   duration: 1000,
   paint: {
     "circle-radius": [8, 12],
@@ -68,7 +80,7 @@ The plugin supports the following easing functions from d3-ease:
 
 Example with different easing:
 ```javascript
-map.T(feature, {
+map.transition(feature, {
   duration: 1000,
   ease: "elastic", // Try different easing functions
   paint: {
@@ -82,7 +94,7 @@ map.T(feature, {
 The plugin supports smooth color transitions using D3's color interpolation. It automatically detects color values and uses the appropriate color space for interpolation:
 
 ```javascript
-map.T(feature, {
+map.transition(feature, {
   duration: 1000,
   ease: "linear",
   paint: {
@@ -108,7 +120,7 @@ Each color format uses its appropriate interpolation method:
 You can chain transitions using the `onComplete` callback. This is useful for creating complex animations that need to happen in sequence:
 
 ```javascript
-map.T(feature, {
+map.transition(feature, {
   duration: 600,
   ease: "elastic",
   paint: {
@@ -117,7 +129,7 @@ map.T(feature, {
   },
   onComplete: () => {
     // This transition will start after the radius transition completes
-    map.T(feature, {
+    map.transition(feature, {
       duration: 300,
       ease: "linear",
       paint: {
@@ -141,7 +153,7 @@ The plugin supports multiple breakpoints in transition arrays, enabling complex 
 You can specify multiple colors to create smooth color cycles:
 
 ```javascript
-map.T(feature, {
+map.transition(feature, {
   duration: 3000,
   ease: 'elastic',
   paint: {
@@ -165,7 +177,7 @@ The plugin automatically interpolates between adjacent colors, creating smooth t
 Multiple breakpoints also work for numeric properties, creating piecewise linear interpolations:
 
 ```javascript
-map.T(feature, {
+map.transition(feature, {
   duration: 2000,
   ease: 'cubic',
   paint: {
@@ -198,7 +210,7 @@ This creates a smooth transition that:
 
 Example combining multiple properties with breakpoints:
 ```javascript
-map.T(feature, {
+map.transition(feature, {
   duration: 3000,
   ease: 'elastic',
   paint: {
@@ -208,6 +220,9 @@ map.T(feature, {
   }
 });
 ```
+
+## Examples
+I've put together some simple working examples in Observable, [here](https://observablehq.com/d/b9a97acdf712a77b). 
 
 ## Development
 

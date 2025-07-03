@@ -58,14 +58,14 @@ map.on("load", () => {
 
   const unhover = (feature) => {
     const baseRadius = feature.properties.isCapital ? 8 : 6;
-    map.T(feature, {
+    map.transition(feature, {
       duration: 600,
       ease: "elastic",
       paint: {
         "circle-radius": [12, baseRadius]
       },
       onComplete: () => {
-        map.T(feature, {
+        map.transition(feature, {
           duration: 300,
           ease: "linear",
           paint: {
@@ -84,14 +84,14 @@ map.on("load", () => {
       hoverCity = feature;
       
       const baseRadius = feature.properties.isCapital ? 8 : 6;
-      map.T(feature, {
+      map.transition(feature, {
         duration: 600,
         ease: "elastic",
         paint: {
           "circle-radius": [baseRadius, 12]
         },
         onComplete: () => {
-          map.T(feature, {
+          map.transition(feature, {
             duration: 300,
             ease: "linear",
             paint: {
@@ -145,7 +145,7 @@ map.on("load", () => {
       // Animate capitals
       const capitalFeatures = map.queryRenderedFeatures(null, { layers: ["capitals"] });
       capitalFeatures.forEach((feature) => {
-        map.T(feature, {
+        map.transition(feature, {
           duration: 1000,
           delay: Math.random() * 1000 + 2000,
           ease: "bounce",
@@ -162,7 +162,7 @@ map.on("load", () => {
         // Animate major cities
         const majorCityFeatures = map.queryRenderedFeatures(null, { layers: ["major-cities"] });
         majorCityFeatures.forEach((feature) => {
-          map.T(feature, {
+          map.transition(feature, {
             duration: 1000,
             delay: Math.random() * 1000,
             ease: "bounce",

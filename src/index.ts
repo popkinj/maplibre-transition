@@ -59,6 +59,12 @@ declare module "maplibre-gl" {
       listLayerTransitions: (layerId: string) => any[];
       reverseScale: (scale: any, currentTime: number, easeFn: any) => any;
     };
+    transition: {
+      (feature: any, options?: TransitionOptions): void;
+      transitions: Set<any>;
+      listLayerTransitions: (layerId: string) => any[];
+      reverseScale: (scale: any, currentTime: number, easeFn: any) => any;
+    };
   }
 }
 
@@ -136,12 +142,12 @@ function getColorInterpolator(values: (string | number)[]): ((t: number) => stri
  * @param {any} feature - The feature to animate
  * @param {string} keyName - Unique identifier for the transition
  */
-function animateFeature(map: Map, feature: any, keyName: string) {
+function animateFeature(map: Map, feature: any, keyName: string, transitionsSet: Set<any>) {
   const now = Date.now();
   const style = keyName.split("-").slice(1).join("-"); // Extract style from keyName
 
   // Get the transition from our set
-  const transition = Array.from(map.T.transitions).find((t) => t[keyName]);
+  const transition = Array.from(transitionsSet).find((t: any) => t[keyName]);
   if (!transition) return;
 
   const scale = transition[keyName];
@@ -161,7 +167,7 @@ function animateFeature(map: Map, feature: any, keyName: string) {
       { source: feature.source, id: feature.id },
       finalState
     );
-    map.T.transitions.delete(transition);
+    transitionsSet.delete(transition);
     
     // Call onComplete callback if it exists
     const options = transition.options;
@@ -183,7 +189,7 @@ function animateFeature(map: Map, feature: any, keyName: string) {
     );
 
     // Schedule the next tick
-    requestAnimationFrame(() => animateFeature(map, feature, keyName));
+    requestAnimationFrame(() => animateFeature(map, feature, keyName, transitionsSet));
   }
 }
 
@@ -195,182 +201,180 @@ function animateFeature(map: Map, feature: any, keyName: string) {
  * @param {Map} map - The MapLibre map instance to initialize
  */
 export function init(map: Map): void {
-  map.T = Object.assign(
+  // Create the shared properties object first
+  const sharedProperties = {
+    /** Set of all active transitions */
+    transitions: new Set<any>(),
+
     /**
-     * Transitions a feature's style to a new value.
-     * This is the main function that users will call to animate feature styles.
+     * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
+     * This is used when a new transition is started while an existing one is still in progress.
      * 
-     * @param {any} feature - The feature to transition
-     * @param {TransitionOptions} [options] - Configuration options for the transition
+     * @param {any} scale - The original d3 scale to reverse
+     * @param {number} currentTime - The current timestamp
+     * @param {any} easeFn - The easing function to use for the reverse transition
+     * @returns {any} A new scale that will transition back to the original value
      */
-    function (feature: any, options?: TransitionOptions) {
-      const { duration = 1000, delay = 0, ease = "linear" } = options || {};
-      const now = Date.now() + delay;
+    reverseScale: (scale: any, currentTime: number, easeFn: any) => {
+      const [startTime, endTime] = scale.domain();
+      const [startValue, endValue] = scale.range();
 
-      // Get all paint properties from the options
-      const paintProperties = options?.paint || {};
-      
-      // Set up the layer to use feature state for each style
-      Object.entries(paintProperties).forEach(([style, values]) => {
-        const kebabStyle = camelToKebab(style);
-        const currentPaint = map.getPaintProperty(
-          feature.layer.id,
-          kebabStyle
-        ) as any[];
-        if (currentPaint[0] !== "coalesce") {
-          map.setPaintProperty(feature.layer.id, kebabStyle, [
-            "coalesce",
-            ["feature-state", style],
-            values[0],
-          ]);
-        }
-      });
+      // Calculate how much time has passed in the original transition
+      const elapsedTime = currentTime - startTime;
+      const totalDuration = endTime - startTime;
 
-      const easeName = `ease${
-        ease.charAt(0).toUpperCase() + ease.slice(1)
-      }` as keyof typeof d3Ease;
-      const easeFn = d3Ease[easeName] || d3Ease.easeLinear;
+      // Calculate the current value based on elapsed time
+      const currentValue = scale(currentTime);
 
-      // Create scales for each property
-      const scales: TransitionScales = {};
-      Object.entries(paintProperties).forEach(([style, values]) => {
-        const colorInterpolator = getColorInterpolator(values);
-        
-        if (colorInterpolator) {
-          // Use color interpolation for color values
-          const wrappedScale = (t: number) => {
-            const progress = (t - now) / duration;
-            const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-            return colorInterpolator(easedProgress);
-          };
-          Object.assign(wrappedScale, scaleLinear().domain([now, now + duration]).range([0, 1]).clamp(true));
-          scales[`${feature.id}-${style}`] = wrappedScale;
-        } else {
-          // Use regular linear interpolation for non-color values
-          const numericValues = values.map(v => Number(v));
-          const scale = scaleLinear()
-            .domain([now, now + duration])
-            .range(numericValues)
-            .clamp(true);
+      // Create a new scale that goes from current value back to start value
+      const newScale = scaleLinear()
+        .domain([currentTime, currentTime + elapsedTime])
+        .range([currentValue, startValue]);
 
-          const wrappedScale = (t: number) => {
-            const progress = (t - now) / duration;
-            const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-            return scale(now + easedProgress * duration);
-          };
+      // Wrap the scale with the same easing function
+      const wrappedScale = (t: number) => {
+        const progress = (t - currentTime) / elapsedTime;
+        const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
+        return currentValue + easedProgress * (startValue - currentValue);
+      };
 
-          Object.assign(wrappedScale, scale);
-          scales[`${feature.id}-${style}`] = wrappedScale;
-        }
-      });
-
-      // Set the initial feature state
-      const initialState: TransitionState = {};
-      Object.entries(paintProperties).forEach(([style, values]) => {
-        initialState[style] = typeof values[0] === 'string' ? values[0] : Number(values[0]);
-      });
-      map.setFeatureState(feature, initialState);
-
-      // Check if there are existing transitions for this feature
-      const existingTransitions = Array.from(map.T.transitions).filter(
-        (t) => Object.keys(t).some(key => key.startsWith(`${feature.id}-`))
-      );
-
-      // If there are existing transitions, reverse them
-      if (existingTransitions.length > 0) {
-        existingTransitions.forEach(transition => {
-          const reversedScales: TransitionScales = {};
-          Object.keys(transition).forEach(key => {
-            if (key !== 'options') {
-              reversedScales[key] = map.T.reverseScale(
-                transition[key],
-                now,
-                easeFn
-              );
-            }
-          });
-          map.T.transitions.delete(transition);
-          map.T.transitions.add({ ...reversedScales, options });
-        });
-      } else {
-        // Otherwise, add the new transitions
-        map.T.transitions.add({ ...scales, options });
-      }
-
-      // Start the animation for each property
-      Object.keys(scales).forEach(keyName => {
-        animateFeature(map, feature, keyName);
-      });
+      Object.assign(wrappedScale, newScale);
+      return wrappedScale;
     },
-    {
-      /** Set of all active transitions */
-      transitions: new Set(),
 
-      /**
-       * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
-       * This is used when a new transition is started while an existing one is still in progress.
-       * 
-       * @param {any} scale - The original d3 scale to reverse
-       * @param {number} currentTime - The current timestamp
-       * @param {any} easeFn - The easing function to use for the reverse transition
-       * @returns {any} A new scale that will transition back to the original value
-       */
-      reverseScale: (scale: any, currentTime: number, easeFn: any) => {
-        const [startTime, endTime] = scale.domain();
-        const [startValue, endValue] = scale.range();
+    /**
+     * Lists all active transitions for a specific layer.
+     * This is useful for debugging and monitoring transition states.
+     * 
+     * @param {string} layerId - The ID of the layer to check for transitions
+     * @returns {any[]} Array of transition objects for the specified layer
+     */
+    listLayerTransitions: (layerId: string) => {
+      const layer = map.getLayer(layerId);
+      if (!layer) {
+        console.warn(`Layer ${layerId} not found`);
+        return [];
+      }
+      const sourceId = layer.source;
+      const layerTransitions = Array.from(sharedProperties.transitions).filter(
+        (transition: any) => {
+          const keys = Object.keys(transition);
+          return keys.some((key) => {
+            const feature = map
+              .querySourceFeatures(sourceId)
+              .find((f) => key.startsWith(`${f.id}-`));
+            return feature !== undefined;
+          });
+        }
+      );
+      return layerTransitions;
+    },
+  };
 
-        // Calculate how much time has passed in the original transition
-        const elapsedTime = currentTime - startTime;
-        const totalDuration = endTime - startTime;
+  // Create the transition function
+  const transitionFunction = function (feature: any, options?: TransitionOptions) {
+    const { duration = 1000, delay = 0, ease = "linear" } = options || {};
+    const now = Date.now() + delay;
 
-        // Calculate the current value based on elapsed time
-        const currentValue = scale(currentTime);
+    // Get all paint properties from the options
+    const paintProperties = options?.paint || {};
+    
+    // Set up the layer to use feature state for each style
+    Object.entries(paintProperties).forEach(([style, values]) => {
+      const kebabStyle = camelToKebab(style);
+      const currentPaint = map.getPaintProperty(
+        feature.layer.id,
+        kebabStyle
+      ) as any[];
+      if (currentPaint[0] !== "coalesce") {
+        map.setPaintProperty(feature.layer.id, kebabStyle, [
+          "coalesce",
+          ["feature-state", style],
+          values[0],
+        ]);
+      }
+    });
 
-        // Create a new scale that goes from current value back to start value
-        const newScale = scaleLinear()
-          .domain([currentTime, currentTime + elapsedTime])
-          .range([currentValue, startValue]);
+    const easeName = `ease${
+      ease.charAt(0).toUpperCase() + ease.slice(1)
+    }` as keyof typeof d3Ease;
+    const easeFn = d3Ease[easeName] || d3Ease.easeLinear;
 
-        // Wrap the scale with the same easing function
+    // Create scales for each property
+    const scales: TransitionScales = {};
+    Object.entries(paintProperties).forEach(([style, values]) => {
+      const colorInterpolator = getColorInterpolator(values);
+      
+      if (colorInterpolator) {
+        // Use color interpolation for color values
         const wrappedScale = (t: number) => {
-          const progress = (t - currentTime) / elapsedTime;
+          const progress = (t - now) / duration;
           const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-          return currentValue + easedProgress * (startValue - currentValue);
+          return colorInterpolator(easedProgress);
+        };
+        Object.assign(wrappedScale, scaleLinear().domain([now, now + duration]).range([0, 1]).clamp(true));
+        scales[`${feature.id}-${style}`] = wrappedScale;
+      } else {
+        // Use regular linear interpolation for non-color values
+        const numericValues = values.map(v => Number(v));
+        const scale = scaleLinear()
+          .domain([now, now + duration])
+          .range(numericValues)
+          .clamp(true);
+
+        const wrappedScale = (t: number) => {
+          const progress = (t - now) / duration;
+          const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
+          return scale(now + easedProgress * duration);
         };
 
-        Object.assign(wrappedScale, newScale);
-        return wrappedScale;
-      },
+        Object.assign(wrappedScale, scale);
+        scales[`${feature.id}-${style}`] = wrappedScale;
+      }
+    });
 
-      /**
-       * Lists all active transitions for a specific layer.
-       * This is useful for debugging and monitoring transition states.
-       * 
-       * @param {string} layerId - The ID of the layer to check for transitions
-       * @returns {any[]} Array of transition objects for the specified layer
-       */
-      listLayerTransitions: (layerId: string) => {
-        const layer = map.getLayer(layerId);
-        if (!layer) {
-          console.warn(`Layer ${layerId} not found`);
-          return [];
-        }
-        const sourceId = layer.source;
-        const layerTransitions = Array.from(map.T.transitions).filter(
-          (transition) => {
-            const keys = Object.keys(transition);
-            return keys.some((key) => {
-              const feature = map
-                .querySourceFeatures(sourceId)
-                .find((f) => key.startsWith(`${f.id}-`));
-              return feature !== undefined;
-            });
+    // Set the initial feature state
+    const initialState: TransitionState = {};
+    Object.entries(paintProperties).forEach(([style, values]) => {
+      initialState[style] = typeof values[0] === 'string' ? values[0] : Number(values[0]);
+    });
+    map.setFeatureState(feature, initialState);
+
+    // Check if there are existing transitions for this feature
+    const existingTransitions = Array.from(sharedProperties.transitions).filter(
+      (t) => Object.keys(t).some(key => key.startsWith(`${feature.id}-`))
+    );
+
+    // If there are existing transitions, reverse them
+    if (existingTransitions.length > 0) {
+      existingTransitions.forEach(transition => {
+        const reversedScales: TransitionScales = {};
+        Object.keys(transition).forEach(key => {
+          if (key !== 'options') {
+            reversedScales[key] = sharedProperties.reverseScale(
+              transition[key],
+              now,
+              easeFn
+            );
           }
-        );
-        return layerTransitions;
-      },
+        });
+        sharedProperties.transitions.delete(transition);
+        sharedProperties.transitions.add({ ...reversedScales, options });
+      });
+    } else {
+      // Otherwise, add the new transitions
+      sharedProperties.transitions.add({ ...scales, options });
     }
-  );
+
+    // Start the animation for each property
+    Object.keys(scales).forEach(keyName => {
+      animateFeature(map, feature, keyName, sharedProperties.transitions);
+    });
+  };
+
+  // Assign both map.T and map.transition with the same functionality
+  map.T = Object.assign(transitionFunction, sharedProperties);
+  map.transition = Object.assign(transitionFunction, sharedProperties);
 }
 
 /**

@@ -44,7 +44,7 @@ map.on("load", async () => {
         "fill-color": ["#088", "#f00"]
       }
     };
-    map.T(e.features[0], options);
+    map.transition(e.features[0], options);
   });
 
 }); 

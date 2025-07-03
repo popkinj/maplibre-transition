@@ -11,7 +11,7 @@ const map = new maplibregl.Map({
 const originalFillOpacity = 0.1;
 
 const unhover = (feature) => {
-  map.T(feature, {
+  map.transition(feature, {
     duration: 200,
     ease: "linear",
     paint: {
@@ -54,7 +54,7 @@ map.on("load", async () => {
     if (e.features[0].id !== hoverProvince?.id) {
       if (hoverProvince) unhover(hoverProvince);
       hoverProvince = e.features[0];
-      map.T(e.features[0], {
+      map.transition(e.features[0], {
         duration: 500,
         ease: "linear",
         paint: {
