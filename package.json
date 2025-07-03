@@ -1,9 +1,9 @@
 {
   "name": "maplibre-transition",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "A MapLibre GL JS plugin for smooth transitions between map styles.",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/index.esm.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
   "files": [
