@@ -1,6 +1,6 @@
 {
   "name": "maplibre-transition",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A MapLibre GL JS plugin for smooth transitions between map styles.",
   "type": "module",
   "main": "dist/index.js",
@@ -37,7 +37,7 @@
   },
   "homepage": "https://github.com/popkinj/maplibre-transition#readme",
   "peerDependencies": {
-    "maplibre-gl": "^3.0.0"
+    "maplibre-gl": ">=3.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
@@ -47,7 +47,7 @@
     "@types/d3-ease": "^3.0.2",
     "@types/d3-interpolate": "^3.0.4",
     "@types/d3-scale": "^4.0.9",
-    "maplibre-gl": "^3.0.0",
+    "maplibre-gl": "^5.0.0",
     "rollup": "^3.0.0",
     "tslib": "^2.6.0",
     "typescript": "^5.0.0",

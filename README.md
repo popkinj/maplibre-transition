@@ -2,6 +2,10 @@
 
 A utility plugin for Maplibre GL JS that adds transition-related functionality.
 
+## Compatibility
+
+This plugin is compatible with MapLibre GL JS version 3.0.0 and above.
+
 ## Installation
 
 ```bash
