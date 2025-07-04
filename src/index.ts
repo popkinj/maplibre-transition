@@ -159,12 +159,21 @@ function animateFeature(map: Map, feature: any, keyName: string, transitionsSet:
     Object.keys(transition).forEach(key => {
       if (key !== 'options') {
         const styleName = key.split('-').slice(1).join('-');
-        const values = transition.options.paint[styleName];
-        finalState[styleName] = values[values.length - 1];
+        // Check if options and paint exist before accessing
+        if (transition.options && transition.options.paint && transition.options.paint[styleName]) {
+          const values = transition.options.paint[styleName];
+          finalState[styleName] = values[values.length - 1];
+        } else {
+          // For reversed transitions, we need to get the final value from the scale
+          const scale = transition[key];
+          if (scale && scale.range) {
+            finalState[styleName] = scale.range()[1];
+          }
+        }
       }
     });
     map.setFeatureState(
-      { source: feature.source, id: feature.id },
+      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
       finalState
     );
     transitionsSet.delete(transition);
@@ -184,7 +193,7 @@ function animateFeature(map: Map, feature: any, keyName: string, transitionsSet:
       }
     });
     map.setFeatureState(
-      { source: feature.source, id: feature.id },
+      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
       currentState
     );
 
@@ -338,7 +347,10 @@ export function init(map: Map): void {
     Object.entries(paintProperties).forEach(([style, values]) => {
       initialState[style] = typeof values[0] === 'string' ? values[0] : Number(values[0]);
     });
-    map.setFeatureState(feature, initialState);
+    map.setFeatureState(
+      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
+      initialState
+    );
 
     // Check if there are existing transitions for this feature
     const existingTransitions = Array.from(sharedProperties.transitions).filter(
