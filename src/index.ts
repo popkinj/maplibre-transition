@@ -295,12 +295,27 @@ export function init(map: Map): void {
         feature.layer.id,
         kebabStyle
       ) as any[];
+      
+      // Only modify the paint property if it's not already using feature state
       if (currentPaint[0] !== "coalesce") {
-        map.setPaintProperty(feature.layer.id, kebabStyle, [
-          "coalesce",
-          ["feature-state", style],
-          values[0],
-        ]);
+        // Check if the current paint is a complex expression (like a case statement)
+        const isComplexExpression = Array.isArray(currentPaint) && currentPaint.length > 1;
+        
+        if (isComplexExpression) {
+          // For complex expressions, wrap the existing expression with coalesce
+          map.setPaintProperty(feature.layer.id, kebabStyle, [
+            "coalesce",
+            ["feature-state", style],
+            currentPaint,
+          ]);
+        } else {
+          // For simple values, use the original approach
+          map.setPaintProperty(feature.layer.id, kebabStyle, [
+            "coalesce",
+            ["feature-state", style],
+            values[0],
+          ]);
+        }
       }
     });
 
