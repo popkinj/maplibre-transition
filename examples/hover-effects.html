@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hover Effects - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles/shared.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <style>
+    #map {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/popkinj-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="controls">
+          <h2>Hover Effects</h2>
+          <p>Hover over the circles to trigger smooth transitions. Interactive feedback makes maps more engaging.</p>
+
+          <div class="control-group">
+            <label>Hover Duration: <span class="value-display" id="duration-value">400ms</span></label>
+            <input type="range" id="duration" min="100" max="1000" value="400" step="50">
+          </div>
+
+          <div class="control-group">
+            <label>Hover Effect</label>
+            <select id="effect">
+              <option value="grow">Grow & Brighten</option>
+              <option value="pulse">Pulse</option>
+              <option value="color-shift">Color Shift</option>
+              <option value="glow">Glow Effect</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing">
+              <option value="quad" selected>Quadratic</option>
+              <option value="cubic">Cubic</option>
+              <option value="elastic">Elastic</option>
+              <option value="bounce">Bounce</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Hover Count:</strong> <span id="hover-count">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import MaplibreTransition from '../dist/index.esm.js';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [-123.0782, 49.6042], // Squamish, BC
+      zoom: 11
+    });
+
+    MaplibreTransition.init(map);
+
+    let hoverCount = 0;
+    let hoveredFeatureId = null;
+
+    map.on('load', () => {
+      // Create a grid of circles
+      const circles = [];
+      const lngStart = -123.15;
+      const latStart = 49.65;
+      const spacing = 0.05;
+
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 5; j++) {
+          circles.push({
+            type: 'Feature',
+            properties: { id: i * 5 + j },
+            geometry: {
+              type: 'Point',
+              coordinates: [lngStart + j * spacing, latStart - i * spacing]
+            }
+          });
+        }
+      }
+
+      map.addSource('circles', {
+        type: 'geojson',
+        promoteId: 'id',
+        data: {
+          type: 'FeatureCollection',
+          features: circles
+        }
+      });
+
+      map.addLayer({
+        id: 'circles-layer',
+        type: 'circle',
+        source: 'circles',
+        paint: {
+          'circle-radius': 12,
+          'circle-color': '#667eea',
+          'circle-opacity': 0.7,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      const durationSlider = document.getElementById('duration');
+      const durationValue = document.getElementById('duration-value');
+      const effectSelect = document.getElementById('effect');
+      const easingSelect = document.getElementById('easing');
+      const hoverCountEl = document.getElementById('hover-count');
+
+      durationSlider.addEventListener('input', (e) => {
+        durationValue.textContent = `${e.target.value}ms`;
+      });
+
+      // Hover handlers
+      map.on('mousemove', 'circles-layer', (e) => {
+        if (e.features.length === 0) return;
+
+        const feature = e.features[0];
+        if (hoveredFeatureId === feature.id) return;
+
+        hoveredFeatureId = feature.id;
+        hoverCount++;
+        hoverCountEl.textContent = hoverCount;
+        // Add layer and source info to the feature
+        feature.layer = { id: 'circles-layer' };
+        feature.source = 'circles';
+
+        const duration = parseInt(durationSlider.value);
+        const ease = easingSelect.value;
+        const effect = effectSelect.value;
+
+        let paint = {};
+
+        switch (effect) {
+          case 'grow':
+            paint = {
+              'circle-radius': [12, 20],
+              'circle-opacity': [0.7, 1]
+            };
+            break;
+          case 'pulse':
+            paint = {
+              'circle-radius': [12, 18, 15],
+              'circle-opacity': [0.7, 1, 0.85]
+            };
+            break;
+          case 'color-shift':
+            paint = {
+              'circle-color': ['#667eea', '#f093fb'],
+              'circle-radius': [12, 16]
+            };
+            break;
+          case 'glow':
+            paint = {
+              'circle-opacity': [0.7, 1],
+              'circle-stroke-width': [2, 6],
+              'circle-stroke-color': ['#ffffff', '#667eea']
+            };
+            break;
+        }
+
+        map.transition(feature, {
+          duration: duration,
+          ease: ease,
+          paint: paint
+        });
+      });
+
+      map.on('mouseleave', 'circles-layer', () => {
+        if (hoveredFeatureId === null) return;
+
+        const features = map.querySourceFeatures('circles');
+        const feature = features.find(f => f.id === hoveredFeatureId);
+        // Add layer and source info to the feature
+        if (feature) {
+          feature.layer = { id: 'circles-layer' };
+          feature.source = 'circles';
+        }
+
+        if (feature) {
+          const duration = parseInt(durationSlider.value);
+          const ease = easingSelect.value;
+
+          // Return to original state
+          map.transition(feature, {
+            duration: duration,
+            ease: ease,
+            paint: {
+              'circle-radius': [null, 12],
+              'circle-color': [null, '#667eea'],
+              'circle-opacity': [null, 0.7],
+              'circle-stroke-width': [null, 2],
+              'circle-stroke-color': [null, '#ffffff']
+            }
+          });
+        }
+
+        hoveredFeatureId = null;
+      });
+    });
+  </script>
+</body>
+</html>

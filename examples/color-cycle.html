@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Cycling - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles/shared.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="controls">
+          <h2>Color Cycling</h2>
+          <p>Cycle through multiple colors using breakpoints. The plugin automatically interpolates between each color in the sequence.</p>
+
+          <div class="control-group">
+            <label>Duration: <span class="value-display" id="duration-value">3000ms</span></label>
+            <input type="range" id="duration" min="1000" max="10000" value="3000" step="500">
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing">
+              <option value="linear">Linear</option>
+              <option value="quad">Quadratic</option>
+              <option value="cubic">Cubic</option>
+              <option value="sin">Sinusoidal</option>
+              <option value="elastic" selected>Elastic</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Color Palette</label>
+            <select id="palette">
+              <option value="rainbow" selected>Rainbow</option>
+              <option value="warm">Warm Tones</option>
+              <option value="cool">Cool Tones</option>
+              <option value="sunset">Sunset</option>
+              <option value="ocean">Ocean</option>
+            </select>
+          </div>
+
+          <button id="animate">Start Color Cycle</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import MaplibreTransition from '../dist/index.esm.js';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [-119.4960, 49.8880], // Kelowna, BC
+      zoom: 11
+    });
+
+    MaplibreTransition.init(map);
+
+    const palettes = {
+      rainbow: ['#088', '#f00', '#00f', '#ff0', '#f0f', '#0ff', '#088'],
+      warm: ['#ff6b35', '#f7931e', '#fdc830', '#f37335', '#c02425', '#ff6b35'],
+      cool: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#667eea'],
+      sunset: ['#ff512f', '#dd2476', '#f79d00', '#64f38c', '#dd2476', '#ff512f'],
+      ocean: ['#2e3192', '#1bffff', '#11998e', '#38ef7d', '#1bffff', '#2e3192']
+    };
+
+    map.on('load', () => {
+      // Add multiple circles in a grid
+      const circles = [];
+      const lngStart = -119.65;
+      const latStart = 50.0;
+      const spacing = 0.15;
+
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          circles.push({
+            type: 'Feature',
+            properties: { id: i * 4 + j },
+            geometry: {
+              type: 'Point',
+              coordinates: [lngStart + j * spacing, latStart - i * spacing]
+            }
+          });
+        }
+      }
+
+      map.addSource('circles', {
+        type: 'geojson',
+        promoteId: 'id',
+        data: {
+          type: 'FeatureCollection',
+          features: circles
+        }
+      });
+
+      map.addLayer({
+        id: 'circles-layer',
+        type: 'circle',
+        source: 'circles',
+        paint: {
+          'circle-radius': 25,
+          'circle-color': '#088',
+          'circle-opacity': 0.8,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      // Get controls
+      const durationSlider = document.getElementById('duration');
+      const durationValue = document.getElementById('duration-value');
+      const easingSelect = document.getElementById('easing');
+      const paletteSelect = document.getElementById('palette');
+      const animateBtn = document.getElementById('animate');
+
+      durationSlider.addEventListener('input', (e) => {
+        durationValue.textContent = `${e.target.value}ms`;
+      });
+
+      let isAnimating = false;
+      animateBtn.addEventListener('click', () => {
+        if (isAnimating) return;
+
+        isAnimating = true;
+        animateBtn.textContent = 'Cycling...';
+        animateBtn.disabled = true;
+
+        const features = map.querySourceFeatures('circles');
+        const duration = parseInt(durationSlider.value);
+        const ease = easingSelect.value;
+        const colors = palettes[paletteSelect.value];
+
+        // Animate each circle with a slight delay
+        features.forEach((feature, index) => {
+          // Add layer and source info to the feature
+          feature.layer = { id: 'circles-layer' };
+          feature.source = 'circles';
+          map.transition(feature, {
+            duration: duration,
+            ease: ease,
+            delay: index * 50,
+            paint: {
+              'circle-color': colors
+            },
+            onComplete: () => {
+              if (index === features.length - 1) {
+                isAnimating = false;
+                animateBtn.textContent = 'Start Color Cycle';
+                animateBtn.disabled = false;
+              }
+            }
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>

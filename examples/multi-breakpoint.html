@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Breakpoint Transitions - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles/shared.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="controls">
+          <h2>Multi-Breakpoint Transitions</h2>
+          <p>Create complex animations with multiple breakpoints. The plugin smoothly interpolates between all values.</p>
+
+          <div class="control-group">
+            <label>Animation Pattern</label>
+            <select id="pattern">
+              <option value="wave">Wave Pattern (5 breakpoints)</option>
+              <option value="bounce">Bounce Pattern (6 breakpoints)</option>
+              <option value="spiral">Spiral Pattern (7 breakpoints)</option>
+              <option value="custom">Custom Rainbow (8 breakpoints)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Duration: <span class="value-display" id="duration-value">3000ms</span></label>
+            <input type="range" id="duration" min="1000" max="8000" value="3000" step="500">
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing">
+              <option value="linear">Linear</option>
+              <option value="cubic">Cubic</option>
+              <option value="sin" selected>Sinusoidal</option>
+              <option value="elastic">Elastic</option>
+            </select>
+          </div>
+
+          <button id="animate">Start Animation</button>
+
+          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Breakpoints:</strong> <span id="breakpoint-info">5 values</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import MaplibreTransition from '../dist/index.esm.js';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [-122.9574, 49.1642], // Richmond, BC
+      zoom: 11
+    });
+
+    MaplibreTransition.init(map);
+
+    const patterns = {
+      wave: {
+        radius: [15, 30, 20, 35, 15],
+        opacity: [0.5, 1, 0.7, 1, 0.5],
+        color: ['#0066cc', '#00ccff', '#0066cc', '#0099ff', '#0066cc'],
+        count: 5
+      },
+      bounce: {
+        radius: [15, 5, 25, 10, 30, 15],
+        opacity: [0.7, 0.9, 0.6, 0.95, 0.5, 0.7],
+        color: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#667eea'],
+        count: 6
+      },
+      spiral: {
+        radius: [10, 15, 12, 20, 14, 25, 10],
+        opacity: [0.6, 0.8, 0.7, 0.9, 0.75, 1, 0.6],
+        color: ['#ff6b35', '#f7931e', '#fdc830', '#f37335', '#c02425', '#ff6b35', '#ff6b35'],
+        count: 7
+      },
+      custom: {
+        radius: [15, 25, 20, 30, 22, 28, 18, 15],
+        opacity: [0.7, 0.9, 0.8, 1, 0.85, 0.95, 0.75, 0.7],
+        color: ['#088', '#f00', '#00f', '#ff0', '#f0f', '#0ff', '#0f0', '#088'],
+        count: 8
+      }
+    };
+
+    map.on('load', () => {
+      // Add a circle
+      map.addSource('point', {
+        type: 'geojson',
+        promoteId: 'id',
+        data: {
+          type: 'Feature',
+          properties: { id: 1 },
+          geometry: {
+            type: 'Point',
+            coordinates: [-122.9574, 49.1642] // Richmond, BC
+          }
+        }
+      });
+
+      map.addLayer({
+        id: 'point-layer',
+        type: 'circle',
+        source: 'point',
+        paint: {
+          'circle-radius': 15,
+          'circle-color': '#0066cc',
+          'circle-opacity': 0.7,
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      const patternSelect = document.getElementById('pattern');
+      const durationSlider = document.getElementById('duration');
+      const durationValue = document.getElementById('duration-value');
+      const easingSelect = document.getElementById('easing');
+      const animateBtn = document.getElementById('animate');
+      const breakpointInfo = document.getElementById('breakpoint-info');
+
+      // Update breakpoint info when pattern changes
+      patternSelect.addEventListener('change', (e) => {
+        const count = patterns[e.target.value].count;
+        breakpointInfo.textContent = `${count} values`;
+      });
+
+      durationSlider.addEventListener('input', (e) => {
+        durationValue.textContent = `${e.target.value}ms`;
+      });
+
+      let isAnimating = false;
+      animateBtn.addEventListener('click', () => {
+        if (isAnimating) return;
+
+        isAnimating = true;
+        animateBtn.textContent = 'Animating...';
+        animateBtn.disabled = true;
+
+        const feature = map.querySourceFeatures('point')[0];
+        // Add layer and source info to the feature
+        feature.layer = { id: 'point-layer' };
+        feature.source = 'point';
+
+        const duration = parseInt(durationSlider.value);
+        const ease = easingSelect.value;
+        const pattern = patterns[patternSelect.value];
+
+        map.transition(feature, {
+          duration: duration,
+          ease: ease,
+          paint: {
+            'circle-radius': pattern.radius,
+            'circle-opacity': pattern.opacity,
+            'circle-color': pattern.color
+          },
+          onComplete: () => {
+            isAnimating = false;
+            animateBtn.textContent = 'Start Animation';
+            animateBtn.disabled = false;
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

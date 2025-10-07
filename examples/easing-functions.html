@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Easing Functions - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles/shared.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <style>
+    .easing-grid {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px var(--shadow-lg);
+      max-width: 400px;
+      z-index: 100;
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+    }
+    .easing-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+    .easing-item:hover {
+      background: var(--surface);
+    }
+    .easing-item.active {
+      background: var(--surface);
+      border-color: var(--primary-color);
+    }
+    .easing-name {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .easing-demo {
+      width: 24px;
+      height: 24px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="easing-grid">
+          <h2>Easing Functions</h2>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+            Click on any easing function to see how it affects the animation. Each creates a unique motion effect.
+          </p>
+          <div id="easing-list"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import MaplibreTransition from '../dist/index.esm.js';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [-123.3656, 48.4284], // Victoria, BC
+      zoom: 11
+    });
+
+    MaplibreTransition.init(map);
+
+    const easingFunctions = [
+      { name: 'linear', description: 'Constant speed' },
+      { name: 'quad', description: 'Quadratic acceleration' },
+      { name: 'cubic', description: 'Cubic acceleration' },
+      { name: 'sin', description: 'Sinusoidal motion' },
+      { name: 'exp', description: 'Exponential acceleration' },
+      { name: 'circle', description: 'Circular motion' },
+      { name: 'elastic', description: 'Elastic bounce' },
+      { name: 'bounce', description: 'Bouncing motion' },
+      { name: 'poly', description: 'Polynomial acceleration' }
+    ];
+
+    map.on('load', () => {
+      // Add a circle
+      map.addSource('point', {
+        type: 'geojson',
+        promoteId: 'id',
+        data: {
+          type: 'Feature',
+          properties: { id: 1 },
+          geometry: {
+            type: 'Point',
+            coordinates: [-123.3656, 48.4284] // Victoria, BC
+          }
+        }
+      });
+
+      map.addLayer({
+        id: 'point-layer',
+        type: 'circle',
+        source: 'point',
+        paint: {
+          'circle-radius': 15,
+          'circle-color': '#667eea',
+          'circle-opacity': 0.7,
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      // Create easing function list
+      const easingList = document.getElementById('easing-list');
+      let currentEasing = 'cubic';
+
+      easingFunctions.forEach(easing => {
+        const item = document.createElement('div');
+        item.className = 'easing-item' + (easing.name === currentEasing ? ' active' : '');
+        item.innerHTML = `
+          <div>
+            <div class="easing-name">${easing.name}</div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">${easing.description}</div>
+          </div>
+          <div class="easing-demo"></div>
+        `;
+
+        item.addEventListener('click', () => {
+          // Remove active class from all items
+          document.querySelectorAll('.easing-item').forEach(el => el.classList.remove('active'));
+          item.classList.add('active');
+          currentEasing = easing.name;
+
+          // Animate the circle
+          const feature = map.querySourceFeatures('point')[0];
+          // Add layer and source info to the feature
+          feature.layer = { id: 'point-layer' };
+          feature.source = 'point';
+
+          map.transition(feature, {
+            duration: 1500,
+            ease: easing.name,
+            paint: {
+              'circle-radius': [15, 40, 15],
+              'circle-opacity': [0.7, 1, 0.7],
+              'circle-color': ['#667eea', '#f093fb', '#667eea']
+            }
+          });
+        });
+
+        easingList.appendChild(item);
+      });
+    });
+  </script>
+</body>
+</html>

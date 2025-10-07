@@ -15,6 +15,9 @@
     "build": "rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.config.mjs -w",
     "serve": "vite",
+    "serve:examples": "vite --config vite.examples.config.js",
+    "build:examples": "npm run build && vite build --config vite.examples.config.js",
+    "deploy:examples": "npm run build:examples && gh-pages -d examples-dist",
     "test": "jest",
     "prepublishOnly": "npm run build"
   },
@@ -47,6 +50,7 @@
     "@types/d3-ease": "^3.0.2",
     "@types/d3-interpolate": "^3.0.4",
     "@types/d3-scale": "^4.0.9",
+    "gh-pages": "^6.3.0",
     "maplibre-gl": "^5.0.0",
     "rollup": "^3.0.0",
     "tslib": "^2.6.0",

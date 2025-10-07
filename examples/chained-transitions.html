@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chained Transitions - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles/shared.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="controls">
+          <h2>Chained Transitions</h2>
+          <p>Use the onComplete callback to chain transitions together. Create complex, sequential animations.</p>
+
+          <div class="control-group">
+            <label>Chain Type</label>
+            <select id="chain-type">
+              <option value="simple">Simple Chain (2 steps)</option>
+              <option value="complex">Complex Chain (4 steps)</option>
+              <option value="loop">Continuous Loop</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Step Duration: <span class="value-display" id="duration-value">800ms</span></label>
+            <input type="range" id="duration" min="300" max="2000" value="800" step="100">
+          </div>
+
+          <button id="animate">Start Chain</button>
+          <button id="stop" style="background: var(--secondary-color); margin-top: 0.5rem;" disabled>Stop Loop</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import MaplibreTransition from '../dist/index.esm.js';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [-123.1139, 49.2608], // Burnaby, BC
+      zoom: 11
+    });
+
+    MaplibreTransition.init(map);
+
+    let isLooping = false;
+    let stopLoop = false;
+
+    map.on('load', () => {
+      // Add a circle
+      map.addSource('point', {
+        type: 'geojson',
+        promoteId: 'id',
+        data: {
+          type: 'Feature',
+          properties: { id: 1 },
+          geometry: {
+            type: 'Point',
+            coordinates: [-123.1139, 49.2608] // Burnaby, BC
+          }
+        }
+      });
+
+      map.addLayer({
+        id: 'point-layer',
+        type: 'circle',
+        source: 'point',
+        paint: {
+          'circle-radius': 15,
+          'circle-color': '#0066cc',
+          'circle-opacity': 0.7,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      const chainTypeSelect = document.getElementById('chain-type');
+      const durationSlider = document.getElementById('duration');
+      const durationValue = document.getElementById('duration-value');
+      const animateBtn = document.getElementById('animate');
+      const stopBtn = document.getElementById('stop');
+
+      durationSlider.addEventListener('input', (e) => {
+        durationValue.textContent = `${e.target.value}ms`;
+      });
+
+      function simpleChain(feature, duration) {
+        animateBtn.textContent = 'Step 1/2...';
+        animateBtn.disabled = true;
+
+        // Step 1: Grow and turn red
+        map.transition(feature, {
+          duration: duration,
+          ease: 'cubic',
+          paint: {
+            'circle-radius': [15, 30],
+            'circle-color': ['#0066cc', '#ff0000']
+          },
+          onComplete: () => {
+            // Step 2: Shrink and turn back to blue
+            animateBtn.textContent = 'Step 2/2...';
+            map.transition(feature, {
+              duration: duration,
+              ease: 'bounce',
+              paint: {
+                'circle-radius': [30, 15],
+                'circle-color': ['#ff0000', '#0066cc']
+              },
+              onComplete: () => {
+                animateBtn.textContent = 'Start Chain';
+                animateBtn.disabled = false;
+              }
+            });
+          }
+        });
+      }
+
+      function complexChain(feature, duration) {
+        animateBtn.textContent = 'Step 1/4...';
+        animateBtn.disabled = true;
+
+        // Step 1: Grow and turn red
+        map.transition(feature, {
+          duration: duration,
+          ease: 'quad',
+          paint: {
+            'circle-radius': [15, 35],
+            'circle-color': ['#0066cc', '#ff0000'],
+            'circle-opacity': [0.7, 1]
+          },
+          onComplete: () => {
+            // Step 2: Turn green
+            animateBtn.textContent = 'Step 2/4...';
+            map.transition(feature, {
+              duration: duration,
+              ease: 'linear',
+              paint: {
+                'circle-color': ['#ff0000', '#00ff00'],
+                'circle-stroke-width': [2, 5]
+              },
+              onComplete: () => {
+                // Step 3: Turn yellow and shrink
+                animateBtn.textContent = 'Step 3/4...';
+                map.transition(feature, {
+                  duration: duration,
+                  ease: 'cubic',
+                  paint: {
+                    'circle-radius': [35, 20],
+                    'circle-color': ['#00ff00', '#ffff00']
+                  },
+                  onComplete: () => {
+                    // Step 4: Return to original
+                    animateBtn.textContent = 'Step 4/4...';
+                    map.transition(feature, {
+                      duration: duration,
+                      ease: 'elastic',
+                      paint: {
+                        'circle-radius': [20, 15],
+                        'circle-color': ['#ffff00', '#0066cc'],
+                        'circle-opacity': [1, 0.7],
+                        'circle-stroke-width': [5, 2]
+                      },
+                      onComplete: () => {
+                        animateBtn.textContent = 'Start Chain';
+                        animateBtn.disabled = false;
+                      }
+                    });
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      function continuousLoop(feature, duration) {
+        if (stopLoop) {
+          stopLoop = false;
+          isLooping = false;
+          stopBtn.disabled = true;
+          animateBtn.disabled = false;
+          animateBtn.textContent = 'Start Chain';
+          return;
+        }
+
+        map.transition(feature, {
+          duration: duration,
+          ease: 'sin',
+          paint: {
+            'circle-radius': [15, 30, 15],
+            'circle-color': ['#0066cc', '#ff1493', '#0066cc'],
+            'circle-opacity': [0.7, 1, 0.7]
+          },
+          onComplete: () => {
+            if (isLooping && !stopLoop) {
+              continuousLoop(feature, duration);
+            }
+          }
+        });
+      }
+
+      animateBtn.addEventListener('click', () => {
+        const feature = map.querySourceFeatures('point')[0];
+        // Add layer and source info to the feature
+        feature.layer = { id: 'point-layer' };
+        feature.source = 'point';
+
+        const duration = parseInt(durationSlider.value);
+        const chainType = chainTypeSelect.value;
+
+        if (chainType === 'simple') {
+          simpleChain(feature, duration);
+        } else if (chainType === 'complex') {
+          complexChain(feature, duration);
+        } else if (chainType === 'loop') {
+          isLooping = true;
+          stopLoop = false;
+          animateBtn.disabled = true;
+          stopBtn.disabled = false;
+          animateBtn.textContent = 'Looping...';
+          continuousLoop(feature, duration);
+        }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        stopLoop = true;
+        stopBtn.disabled = true;
+      });
+    });
+  </script>
+</body>
+</html>

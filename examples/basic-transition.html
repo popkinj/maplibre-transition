@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic Transition - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles/shared.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="controls">
+          <h2>Basic Transition</h2>
+          <p>Click the button to animate a circle's radius and opacity. Adjust the parameters to see how they affect the transition.</p>
+
+          <div class="control-group">
+            <label>Duration: <span class="value-display" id="duration-value">1000ms</span></label>
+            <input type="range" id="duration" min="100" max="3000" value="1000" step="100">
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing">
+              <option value="linear">Linear</option>
+              <option value="quad">Quadratic</option>
+              <option value="cubic" selected>Cubic</option>
+              <option value="sin">Sinusoidal</option>
+              <option value="exp">Exponential</option>
+              <option value="circle">Circular</option>
+              <option value="elastic">Elastic</option>
+              <option value="bounce">Bounce</option>
+            </select>
+          </div>
+
+          <button id="animate">Animate Transition</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import MaplibreTransition from '../dist/index.esm.js';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [-123.1207, 49.2827], // Vancouver, BC
+      zoom: 10
+    });
+
+    MaplibreTransition.init(map);
+
+    map.on('load', () => {
+      // Add a GeoJSON source with a single point
+      map.addSource('point', {
+        type: 'geojson',
+        promoteId: 'id',
+        data: {
+          type: 'Feature',
+          properties: { id: 1 },
+          geometry: {
+            type: 'Point',
+            coordinates: [-123.1207, 49.2827] // Vancouver, BC
+          }
+        }
+      });
+
+      // Add a circle layer
+      map.addLayer({
+        id: 'point-layer',
+        type: 'circle',
+        source: 'point',
+        paint: {
+          'circle-radius': 10,
+          'circle-color': '#0066cc',
+          'circle-opacity': 0.3,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#0066cc'
+        }
+      });
+
+      // Get controls
+      const durationSlider = document.getElementById('duration');
+      const durationValue = document.getElementById('duration-value');
+      const easingSelect = document.getElementById('easing');
+      const animateBtn = document.getElementById('animate');
+
+      // Update duration display
+      durationSlider.addEventListener('input', (e) => {
+        durationValue.textContent = `${e.target.value}ms`;
+      });
+
+      // Animate button handler
+      let isAnimating = false;
+      animateBtn.addEventListener('click', () => {
+        if (isAnimating) return;
+
+        isAnimating = true;
+        animateBtn.textContent = 'Animating...';
+        animateBtn.disabled = true;
+
+        const feature = map.querySourceFeatures('point')[0];
+        // Add layer and source info to the feature
+        feature.layer = { id: 'point-layer' };
+        feature.source = 'point';
+
+        const duration = parseInt(durationSlider.value);
+        const ease = easingSelect.value;
+
+        map.transition(feature, {
+          duration: duration,
+          ease: ease,
+          paint: {
+            'circle-radius': [10, 30, 10],
+            'circle-opacity': [0.3, 0.8, 0.3]
+          },
+          onComplete: () => {
+            isAnimating = false;
+            animateBtn.textContent = 'Animate Transition';
+            animateBtn.disabled = false;
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

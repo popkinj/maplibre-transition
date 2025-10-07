@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiple Properties - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles/shared.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <style>
+    .property-toggles {
+      display: grid;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .property-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: var(--surface);
+      border-radius: 6px;
+    }
+    .property-toggle input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .property-toggle label {
+      margin: 0;
+      cursor: pointer;
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="controls">
+          <h2>Multiple Properties</h2>
+          <p>Transition multiple style properties simultaneously. Select which properties to animate together.</p>
+
+          <div class="property-toggles">
+            <div class="property-toggle">
+              <input type="checkbox" id="radius" checked>
+              <label for="radius">Circle Radius (10 → 35)</label>
+            </div>
+            <div class="property-toggle">
+              <input type="checkbox" id="color" checked>
+              <label for="color">Circle Color (Blue → Pink)</label>
+            </div>
+            <div class="property-toggle">
+              <input type="checkbox" id="opacity" checked>
+              <label for="opacity">Circle Opacity (0.5 → 1.0)</label>
+            </div>
+            <div class="property-toggle">
+              <input type="checkbox" id="stroke" checked>
+              <label for="stroke">Stroke Width (2 → 6)</label>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label>Duration: <span class="value-display" id="duration-value">1500ms</span></label>
+            <input type="range" id="duration" min="500" max="5000" value="1500" step="100">
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing">
+              <option value="linear">Linear</option>
+              <option value="quad">Quadratic</option>
+              <option value="cubic" selected>Cubic</option>
+              <option value="elastic">Elastic</option>
+              <option value="bounce">Bounce</option>
+            </select>
+          </div>
+
+          <button id="animate">Animate Selected Properties</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import MaplibreTransition from '../dist/index.esm.js';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [-122.7497, 49.1666], // Surrey, BC
+      zoom: 11
+    });
+
+    MaplibreTransition.init(map);
+
+    map.on('load', () => {
+      // Add a circle
+      map.addSource('point', {
+        type: 'geojson',
+        promoteId: 'id',
+        data: {
+          type: 'Feature',
+          properties: { id: 1 },
+          geometry: {
+            type: 'Point',
+            coordinates: [-122.7497, 49.1666] // Surrey, BC
+          }
+        }
+      });
+
+      map.addLayer({
+        id: 'point-layer',
+        type: 'circle',
+        source: 'point',
+        paint: {
+          'circle-radius': 10,
+          'circle-color': '#0066cc',
+          'circle-opacity': 0.5,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      // Get controls
+      const radiusCheck = document.getElementById('radius');
+      const colorCheck = document.getElementById('color');
+      const opacityCheck = document.getElementById('opacity');
+      const strokeCheck = document.getElementById('stroke');
+      const durationSlider = document.getElementById('duration');
+      const durationValue = document.getElementById('duration-value');
+      const easingSelect = document.getElementById('easing');
+      const animateBtn = document.getElementById('animate');
+
+      durationSlider.addEventListener('input', (e) => {
+        durationValue.textContent = `${e.target.value}ms`;
+      });
+
+      let isAnimating = false;
+      animateBtn.addEventListener('click', () => {
+        if (isAnimating) return;
+
+        // Build paint object based on selected properties
+        const paint = {};
+
+        if (radiusCheck.checked) {
+          paint['circle-radius'] = [10, 35, 10];
+        }
+        if (colorCheck.checked) {
+          paint['circle-color'] = ['#0066cc', '#ff1493', '#0066cc'];
+        }
+        if (opacityCheck.checked) {
+          paint['circle-opacity'] = [0.5, 1, 0.5];
+        }
+        if (strokeCheck.checked) {
+          paint['circle-stroke-width'] = [2, 6, 2];
+        }
+
+        // Check if at least one property is selected
+        if (Object.keys(paint).length === 0) {
+          alert('Please select at least one property to animate');
+          return;
+        }
+
+        isAnimating = true;
+        animateBtn.textContent = 'Animating...';
+        animateBtn.disabled = true;
+
+        const feature = map.querySourceFeatures('point')[0];
+        // Add layer and source info to the feature
+        feature.layer = { id: 'point-layer' };
+        feature.source = 'point';
+
+        const duration = parseInt(durationSlider.value);
+        const ease = easingSelect.value;
+
+        map.transition(feature, {
+          duration: duration,
+          ease: ease,
+          paint: paint,
+          onComplete: () => {
+            isAnimating = false;
+            animateBtn.textContent = 'Animate Selected Properties';
+            animateBtn.disabled = false;
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
