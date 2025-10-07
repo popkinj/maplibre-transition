@@ -28,7 +28,7 @@
         <div id="map"></div>
         <div class="controls">
           <h2>Multi-Breakpoint Transitions</h2>
-          <p>Create complex animations with multiple breakpoints. The plugin smoothly interpolates between all values.</p>
+          <p>Click on a Canadian city, then choose a pattern to see complex multi-breakpoint animations.</p>
 
           <div class="control-group">
             <label>Animation Pattern</label>
@@ -67,15 +67,18 @@
 
   <script type="module">
     import MaplibreTransition from '../dist/index.esm.js';
+    import { canadianCapitalCities } from './data/canadian-cities.js';
 
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [-122.9574, 49.1642], // Richmond, BC
-      zoom: 11
+      center: [-95, 60],
+      zoom: 3
     });
 
     MaplibreTransition.init(map);
+
+    let lastClickedFeature = null;
 
     const patterns = {
       wave: {
@@ -105,24 +108,16 @@
     };
 
     map.on('load', () => {
-      // Add a circle
-      map.addSource('point', {
+      // Add Canadian cities
+      map.addSource('cities', {
         type: 'geojson',
-        promoteId: 'id',
-        data: {
-          type: 'Feature',
-          properties: { id: 1 },
-          geometry: {
-            type: 'Point',
-            coordinates: [-122.9574, 49.1642] // Richmond, BC
-          }
-        }
+        data: canadianCapitalCities
       });
 
       map.addLayer({
-        id: 'point-layer',
+        id: 'cities-layer',
         type: 'circle',
-        source: 'point',
+        source: 'cities',
         paint: {
           'circle-radius': 15,
           'circle-color': '#0066cc',
@@ -149,24 +144,29 @@
         durationValue.textContent = `${e.target.value}ms`;
       });
 
+      // Click handler for cities
+      map.on('click', 'cities-layer', (e) => {
+        lastClickedFeature = e.features[0];
+      });
+
       let isAnimating = false;
       animateBtn.addEventListener('click', () => {
+        if (!lastClickedFeature) {
+          alert('Please click a city first!');
+          return;
+        }
+
         if (isAnimating) return;
 
         isAnimating = true;
         animateBtn.textContent = 'Animating...';
         animateBtn.disabled = true;
 
-        const feature = map.querySourceFeatures('point')[0];
-        // Add layer and source info to the feature
-        feature.layer = { id: 'point-layer' };
-        feature.source = 'point';
-
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
         const pattern = patterns[patternSelect.value];
 
-        map.transition(feature, {
+        map.transition(lastClickedFeature, {
           duration: duration,
           ease: ease,
           paint: {
@@ -180,6 +180,15 @@
             animateBtn.disabled = false;
           }
         });
+      });
+
+      // Change cursor on hover
+      map.on('mouseenter', 'cities-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', 'cities-layer', () => {
+        map.getCanvas().style.cursor = '';
       });
     });
   </script>

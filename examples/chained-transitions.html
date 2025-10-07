@@ -28,7 +28,7 @@
         <div id="map"></div>
         <div class="controls">
           <h2>Chained Transitions</h2>
-          <p>Use the onComplete callback to chain transitions together. Create complex, sequential animations.</p>
+          <p>Click on a Canadian city, then choose a chain type to create sequential animations.</p>
 
           <div class="control-group">
             <label>Chain Type</label>
@@ -53,38 +53,32 @@
 
   <script type="module">
     import MaplibreTransition from '../dist/index.esm.js';
+    import { canadianCapitalCities } from './data/canadian-cities.js';
 
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [-123.1139, 49.2608], // Burnaby, BC
-      zoom: 11
+      center: [-95, 60],
+      zoom: 3
     });
 
     MaplibreTransition.init(map);
 
     let isLooping = false;
     let stopLoop = false;
+    let lastClickedFeature = null;
 
     map.on('load', () => {
-      // Add a circle
-      map.addSource('point', {
+      // Add Canadian cities
+      map.addSource('cities', {
         type: 'geojson',
-        promoteId: 'id',
-        data: {
-          type: 'Feature',
-          properties: { id: 1 },
-          geometry: {
-            type: 'Point',
-            coordinates: [-123.1139, 49.2608] // Burnaby, BC
-          }
-        }
+        data: canadianCapitalCities
       });
 
       map.addLayer({
-        id: 'point-layer',
+        id: 'cities-layer',
         type: 'circle',
-        source: 'point',
+        source: 'cities',
         paint: {
           'circle-radius': 15,
           'circle-color': '#0066cc',
@@ -219,32 +213,46 @@
         });
       }
 
+      // Click handler for cities
+      map.on('click', 'cities-layer', (e) => {
+        lastClickedFeature = e.features[0];
+      });
+
       animateBtn.addEventListener('click', () => {
-        const feature = map.querySourceFeatures('point')[0];
-        // Add layer and source info to the feature
-        feature.layer = { id: 'point-layer' };
-        feature.source = 'point';
+        if (!lastClickedFeature) {
+          alert('Please click a city first!');
+          return;
+        }
 
         const duration = parseInt(durationSlider.value);
         const chainType = chainTypeSelect.value;
 
         if (chainType === 'simple') {
-          simpleChain(feature, duration);
+          simpleChain(lastClickedFeature, duration);
         } else if (chainType === 'complex') {
-          complexChain(feature, duration);
+          complexChain(lastClickedFeature, duration);
         } else if (chainType === 'loop') {
           isLooping = true;
           stopLoop = false;
           animateBtn.disabled = true;
           stopBtn.disabled = false;
           animateBtn.textContent = 'Looping...';
-          continuousLoop(feature, duration);
+          continuousLoop(lastClickedFeature, duration);
         }
       });
 
       stopBtn.addEventListener('click', () => {
         stopLoop = true;
         stopBtn.disabled = true;
+      });
+
+      // Change cursor on hover
+      map.on('mouseenter', 'cities-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', 'cities-layer', () => {
+        map.getCanvas().style.cursor = '';
       });
     });
   </script>

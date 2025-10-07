@@ -22,7 +22,7 @@
       </a>
       <nav>
         <a href="./">Examples</a>
-        <a href="https://github.com/popkinj/popkinj-transition" target="_blank">GitHub</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
       </nav>
     </div>
   </header>
@@ -33,7 +33,7 @@
         <div id="map"></div>
         <div class="controls">
           <h2>Hover Effects</h2>
-          <p>Hover over the circles to trigger smooth transitions. Interactive feedback makes maps more engaging.</p>
+          <p>Hover over Canadian cities to trigger smooth transition effects.</p>
 
           <div class="control-group">
             <label>Hover Duration: <span class="value-display" id="duration-value">400ms</span></label>
@@ -70,12 +70,13 @@
 
   <script type="module">
     import MaplibreTransition from '../dist/index.esm.js';
+    import { canadianCapitalCities } from './data/canadian-cities.js';
 
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [-123.0782, 49.6042], // Squamish, BC
-      zoom: 11
+      center: [-95, 60],
+      zoom: 3
     });
 
     MaplibreTransition.init(map);
@@ -84,38 +85,16 @@
     let hoveredFeatureId = null;
 
     map.on('load', () => {
-      // Create a grid of circles
-      const circles = [];
-      const lngStart = -123.15;
-      const latStart = 49.65;
-      const spacing = 0.05;
-
-      for (let i = 0; i < 5; i++) {
-        for (let j = 0; j < 5; j++) {
-          circles.push({
-            type: 'Feature',
-            properties: { id: i * 5 + j },
-            geometry: {
-              type: 'Point',
-              coordinates: [lngStart + j * spacing, latStart - i * spacing]
-            }
-          });
-        }
-      }
-
-      map.addSource('circles', {
+      // Add Canadian cities
+      map.addSource('cities', {
         type: 'geojson',
-        promoteId: 'id',
-        data: {
-          type: 'FeatureCollection',
-          features: circles
-        }
+        data: canadianCapitalCities
       });
 
       map.addLayer({
-        id: 'circles-layer',
+        id: 'cities-layer',
         type: 'circle',
-        source: 'circles',
+        source: 'cities',
         paint: {
           'circle-radius': 12,
           'circle-color': '#667eea',
@@ -136,7 +115,7 @@
       });
 
       // Hover handlers
-      map.on('mousemove', 'circles-layer', (e) => {
+      map.on('mousemove', 'cities-layer', (e) => {
         if (e.features.length === 0) return;
 
         const feature = e.features[0];
@@ -145,9 +124,6 @@
         hoveredFeatureId = feature.id;
         hoverCount++;
         hoverCountEl.textContent = hoverCount;
-        // Add layer and source info to the feature
-        feature.layer = { id: 'circles-layer' };
-        feature.source = 'circles';
 
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
@@ -190,16 +166,11 @@
         });
       });
 
-      map.on('mouseleave', 'circles-layer', () => {
+      map.on('mouseleave', 'cities-layer', () => {
         if (hoveredFeatureId === null) return;
 
-        const features = map.querySourceFeatures('circles');
+        const features = map.queryRenderedFeatures({ layers: ['cities-layer'] });
         const feature = features.find(f => f.id === hoveredFeatureId);
-        // Add layer and source info to the feature
-        if (feature) {
-          feature.layer = { id: 'circles-layer' };
-          feature.source = 'circles';
-        }
 
         if (feature) {
           const duration = parseInt(durationSlider.value);

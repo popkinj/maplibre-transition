@@ -73,8 +73,11 @@
         <div class="easing-grid">
           <h2>Easing Functions</h2>
           <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-            Click on any easing function to see how it affects the animation. Each creates a unique motion effect.
+            Click on a Canadian city, then click an easing function to see how it affects the animation.
           </p>
+          <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Last clicked:</strong> <span id="clicked-city">None</span>
+          </div>
           <div id="easing-list"></div>
         </div>
       </div>
@@ -83,12 +86,13 @@
 
   <script type="module">
     import MaplibreTransition from '../dist/index.esm.js';
+    import { canadianCapitalCities } from './data/canadian-cities.js';
 
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [-123.3656, 48.4284], // Victoria, BC
-      zoom: 11
+      center: [-95, 60],
+      zoom: 3
     });
 
     MaplibreTransition.init(map);
@@ -105,25 +109,19 @@
       { name: 'poly', description: 'Polynomial acceleration' }
     ];
 
+    let lastClickedFeature = null;
+
     map.on('load', () => {
-      // Add a circle
-      map.addSource('point', {
+      // Add Canadian cities
+      map.addSource('cities', {
         type: 'geojson',
-        promoteId: 'id',
-        data: {
-          type: 'Feature',
-          properties: { id: 1 },
-          geometry: {
-            type: 'Point',
-            coordinates: [-123.3656, 48.4284] // Victoria, BC
-          }
-        }
+        data: canadianCapitalCities
       });
 
       map.addLayer({
-        id: 'point-layer',
+        id: 'cities-layer',
         type: 'circle',
-        source: 'point',
+        source: 'cities',
         paint: {
           'circle-radius': 15,
           'circle-color': '#667eea',
@@ -131,6 +129,14 @@
           'circle-stroke-width': 3,
           'circle-stroke-color': '#ffffff'
         }
+      });
+
+      const clickedCityEl = document.getElementById('clicked-city');
+
+      // Click handler for cities
+      map.on('click', 'cities-layer', (e) => {
+        lastClickedFeature = e.features[0];
+        clickedCityEl.textContent = lastClickedFeature.properties.name;
       });
 
       // Create easing function list
@@ -149,18 +155,17 @@
         `;
 
         item.addEventListener('click', () => {
+          if (!lastClickedFeature) {
+            alert('Please click a city first!');
+            return;
+          }
+
           // Remove active class from all items
           document.querySelectorAll('.easing-item').forEach(el => el.classList.remove('active'));
           item.classList.add('active');
           currentEasing = easing.name;
 
-          // Animate the circle
-          const feature = map.querySourceFeatures('point')[0];
-          // Add layer and source info to the feature
-          feature.layer = { id: 'point-layer' };
-          feature.source = 'point';
-
-          map.transition(feature, {
+          map.transition(lastClickedFeature, {
             duration: 1500,
             ease: easing.name,
             paint: {
@@ -172,6 +177,15 @@
         });
 
         easingList.appendChild(item);
+      });
+
+      // Change cursor on hover
+      map.on('mouseenter', 'cities-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', 'cities-layer', () => {
+        map.getCanvas().style.cursor = '';
       });
     });
   </script>

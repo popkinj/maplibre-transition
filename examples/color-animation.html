@@ -28,21 +28,16 @@
         <div id="map"></div>
         <div class="controls">
           <h2>Color Animation</h2>
-          <p>Smooth color transitions using D3's color interpolation. Choose different color spaces to see the difference.</p>
+          <p>Click on a province to animate its color. Smooth color transitions using D3's color interpolation.</p>
 
           <div class="control-group">
-            <label>From Color</label>
-            <input type="color" id="color-from" value="#ff0000">
+            <label>Duration: <span class="value-display" id="duration-value">1000ms</span></label>
+            <input type="range" id="duration" min="500" max="5000" value="1000" step="100">
           </div>
 
           <div class="control-group">
-            <label>To Color</label>
-            <input type="color" id="color-to" value="#00ff00">
-          </div>
-
-          <div class="control-group">
-            <label>Duration: <span class="value-display" id="duration-value">2000ms</span></label>
-            <input type="range" id="duration" min="500" max="5000" value="2000" step="100">
+            <label>Target Color</label>
+            <input type="color" id="target-color" value="#ff0000">
           </div>
 
           <div class="control-group">
@@ -55,7 +50,9 @@
             </select>
           </div>
 
-          <button id="animate">Animate Color</button>
+          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Click count:</strong> <span id="click-count">0</span>
+          </div>
         </div>
       </div>
     </div>
@@ -67,112 +64,75 @@
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [-123.3656, 48.4284], // Victoria, BC
-      zoom: 8
+      center: [-95, 60], // Center on Canada
+      zoom: 3
     });
 
     MaplibreTransition.init(map);
 
-    map.on('load', () => {
-      // Add a GeoJSON source with a polygon
-      map.addSource('polygon', {
+    map.on('load', async () => {
+      // Load the GeoJSON data
+      const response = await fetch('./data/canada-provinces.json');
+      const data = await response.json();
+
+      // Add the source
+      map.addSource('provinces', {
         type: 'geojson',
-        promoteId: 'id',
-        data: {
-          type: 'Feature',
-          properties: { id: 1 },
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[
-              [-123.5, 48.6],
-              [-123.5, 48.2],
-              [-123.1, 48.2],
-              [-123.1, 48.6],
-              [-123.5, 48.6]
-            ]] // Victoria area, BC
-          }
-        }
+        data: data,
+        promoteId: 'name'
       });
 
       // Add a fill layer
       map.addLayer({
-        id: 'polygon-layer',
+        id: 'provinces',
         type: 'fill',
-        source: 'polygon',
+        source: 'provinces',
         paint: {
-          'fill-color': '#ff0000',
-          'fill-opacity': 0.6
-        }
-      });
-
-      // Add an outline
-      map.addLayer({
-        id: 'polygon-outline',
-        type: 'line',
-        source: 'polygon',
-        paint: {
-          'line-color': '#ff0000',
-          'line-width': 3
+          'fill-color': '#088',
+          'fill-opacity': 0.5,
+          'fill-outline-color': '#000'
         }
       });
 
       // Get controls
-      const colorFrom = document.getElementById('color-from');
-      const colorTo = document.getElementById('color-to');
       const durationSlider = document.getElementById('duration');
       const durationValue = document.getElementById('duration-value');
+      const targetColorInput = document.getElementById('target-color');
       const easingSelect = document.getElementById('easing');
-      const animateBtn = document.getElementById('animate');
+      const clickCountEl = document.getElementById('click-count');
+
+      let clickCount = 0;
 
       // Update duration display
       durationSlider.addEventListener('input', (e) => {
         durationValue.textContent = `${e.target.value}ms`;
       });
 
-      // Animate button handler
-      let isAnimating = false;
-      animateBtn.addEventListener('click', () => {
-        if (isAnimating) return;
-
-        isAnimating = true;
-        animateBtn.textContent = 'Animating...';
-        animateBtn.disabled = true;
-
-        const fillFeature = map.querySourceFeatures('polygon')[0];
-        const outlineFeature = map.querySourceFeatures('polygon')[0];
-        // Add layer and source info to the features
-        fillFeature.layer = { id: 'polygon-layer' };
-        fillFeature.source = 'polygon';
-        outlineFeature.layer = { id: 'polygon-outline' };
-        outlineFeature.source = 'polygon';
+      // Add click effect
+      map.on('click', 'provinces', (e) => {
+        clickCount++;
+        clickCountEl.textContent = clickCount;
 
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
-        const fromColor = colorFrom.value;
-        const toColor = colorTo.value;
+        const targetColor = targetColorInput.value;
 
-        // Animate fill color
-        map.transition(fillFeature, {
+        map.transition(e.features[0], {
           duration: duration,
           ease: ease,
           paint: {
-            'fill-color': [fromColor, toColor, fromColor]
-          },
-          onComplete: () => {
-            isAnimating = false;
-            animateBtn.textContent = 'Animate Color';
-            animateBtn.disabled = false;
+            'fill-color': ['#088', targetColor]
           }
         });
+      });
 
-        // Animate outline color
-        map.transition(outlineFeature, {
-          duration: duration,
-          ease: ease,
-          paint: {
-            'line-color': [fromColor, toColor, fromColor]
-          }
-        });
+      // Change cursor on hover
+      map.on('mouseenter', 'provinces', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', 'provinces', () => {
+        map.getCanvas().style.cursor = '';
       });
     });
   </script>

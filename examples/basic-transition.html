@@ -28,7 +28,7 @@
         <div id="map"></div>
         <div class="controls">
           <h2>Basic Transition</h2>
-          <p>Click the button to animate a circle's radius and opacity. Adjust the parameters to see how they affect the transition.</p>
+          <p>Click on a Canadian capital city to animate its radius and opacity. Adjust the parameters to see how they affect the transition.</p>
 
           <div class="control-group">
             <label>Duration: <span class="value-display" id="duration-value">1000ms</span></label>
@@ -49,7 +49,9 @@
             </select>
           </div>
 
-          <button id="animate">Animate Transition</button>
+          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Last clicked:</strong> <span id="clicked-city">None</span>
+          </div>
         </div>
       </div>
     </div>
@@ -57,42 +59,35 @@
 
   <script type="module">
     import MaplibreTransition from '../dist/index.esm.js';
+    import { canadianCapitalCities } from './data/canadian-cities.js';
 
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [-123.1207, 49.2827], // Vancouver, BC
-      zoom: 10
+      center: [-95, 60],
+      zoom: 3
     });
 
     MaplibreTransition.init(map);
 
     map.on('load', () => {
-      // Add a GeoJSON source with a single point
-      map.addSource('point', {
+      // Add the Canadian cities source
+      map.addSource('cities', {
         type: 'geojson',
-        promoteId: 'id',
-        data: {
-          type: 'Feature',
-          properties: { id: 1 },
-          geometry: {
-            type: 'Point',
-            coordinates: [-123.1207, 49.2827] // Vancouver, BC
-          }
-        }
+        data: canadianCapitalCities
       });
 
       // Add a circle layer
       map.addLayer({
-        id: 'point-layer',
+        id: 'cities-layer',
         type: 'circle',
-        source: 'point',
+        source: 'cities',
         paint: {
           'circle-radius': 10,
           'circle-color': '#0066cc',
-          'circle-opacity': 0.3,
+          'circle-opacity': 0.8,
           'circle-stroke-width': 2,
-          'circle-stroke-color': '#0066cc'
+          'circle-stroke-color': '#ffffff'
         }
       });
 
@@ -100,26 +95,18 @@
       const durationSlider = document.getElementById('duration');
       const durationValue = document.getElementById('duration-value');
       const easingSelect = document.getElementById('easing');
-      const animateBtn = document.getElementById('animate');
+      const clickedCityEl = document.getElementById('clicked-city');
 
       // Update duration display
       durationSlider.addEventListener('input', (e) => {
         durationValue.textContent = `${e.target.value}ms`;
       });
 
-      // Animate button handler
-      let isAnimating = false;
-      animateBtn.addEventListener('click', () => {
-        if (isAnimating) return;
-
-        isAnimating = true;
-        animateBtn.textContent = 'Animating...';
-        animateBtn.disabled = true;
-
-        const feature = map.querySourceFeatures('point')[0];
-        // Add layer and source info to the feature
-        feature.layer = { id: 'point-layer' };
-        feature.source = 'point';
+      // Click handler
+      map.on('click', 'cities-layer', (e) => {
+        const feature = e.features[0];
+        const cityName = feature.properties.name;
+        clickedCityEl.textContent = cityName;
 
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
@@ -129,14 +116,18 @@
           ease: ease,
           paint: {
             'circle-radius': [10, 30, 10],
-            'circle-opacity': [0.3, 0.8, 0.3]
-          },
-          onComplete: () => {
-            isAnimating = false;
-            animateBtn.textContent = 'Animate Transition';
-            animateBtn.disabled = false;
+            'circle-opacity': [0.8, 1, 0.8]
           }
         });
+      });
+
+      // Change cursor on hover
+      map.on('mouseenter', 'cities-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', 'cities-layer', () => {
+        map.getCanvas().style.cursor = '';
       });
     });
   </script>
