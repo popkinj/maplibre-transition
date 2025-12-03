@@ -30,19 +30,19 @@
   <main>
     <div class="example-container">
       <div class="map-container">
-        <div id="map"></div>
+        <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Hover Effects</h2>
           <p>Hover over Canadian cities to trigger smooth transition effects.</p>
 
           <div class="control-group">
             <label>Hover Duration: <span class="value-display" id="duration-value">400ms</span></label>
-            <input type="range" id="duration" min="100" max="1000" value="400" step="50">
+            <input type="range" id="duration" data-testid="duration-slider" min="100" max="1000" value="400" step="50">
           </div>
 
           <div class="control-group">
             <label>Hover Effect</label>
-            <select id="effect">
+            <select id="effect" data-testid="effect-select">
               <option value="grow">Grow & Brighten</option>
               <option value="pulse">Pulse</option>
               <option value="color-shift">Color Shift</option>
@@ -52,7 +52,7 @@
 
           <div class="control-group">
             <label>Easing Function</label>
-            <select id="easing">
+            <select id="easing" data-testid="easing-select">
               <option value="quad" selected>Quadratic</option>
               <option value="cubic">Cubic</option>
               <option value="elastic">Elastic</option>
@@ -61,7 +61,7 @@
           </div>
 
           <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Hover Count:</strong> <span id="hover-count">0</span>
+            <strong>Hover Count:</strong> <span id="hover-count" data-testid="hover-count-display">0</span>
           </div>
         </div>
       </div>
@@ -80,6 +80,16 @@
     });
 
     MaplibreTransition.init(map);
+
+    // Expose test hooks for Playwright
+    window.__testHooks = {
+      map: map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise(resolve => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      })
+    };
 
     let hoverCount = 0;
     let hoveredFeatureId = null;

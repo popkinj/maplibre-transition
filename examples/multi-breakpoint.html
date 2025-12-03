@@ -25,14 +25,14 @@
   <main>
     <div class="example-container">
       <div class="map-container">
-        <div id="map"></div>
+        <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Multi-Breakpoint Transitions</h2>
           <p>Click on a Canadian city, then choose a pattern to see complex multi-breakpoint animations.</p>
 
           <div class="control-group">
             <label>Animation Pattern</label>
-            <select id="pattern">
+            <select id="pattern" data-testid="pattern-select">
               <option value="wave">Wave Pattern (5 breakpoints)</option>
               <option value="bounce">Bounce Pattern (6 breakpoints)</option>
               <option value="spiral">Spiral Pattern (7 breakpoints)</option>
@@ -42,12 +42,12 @@
 
           <div class="control-group">
             <label>Duration: <span class="value-display" id="duration-value">3000ms</span></label>
-            <input type="range" id="duration" min="1000" max="8000" value="3000" step="500">
+            <input type="range" id="duration" data-testid="duration-slider" min="1000" max="8000" value="3000" step="500">
           </div>
 
           <div class="control-group">
             <label>Easing Function</label>
-            <select id="easing">
+            <select id="easing" data-testid="easing-select">
               <option value="linear">Linear</option>
               <option value="cubic">Cubic</option>
               <option value="sin" selected>Sinusoidal</option>
@@ -55,10 +55,10 @@
             </select>
           </div>
 
-          <button id="animate">Start Animation</button>
+          <button id="animate" data-testid="animate-button">Start Animation</button>
 
           <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Breakpoints:</strong> <span id="breakpoint-info">5 values</span>
+            <strong>Breakpoints:</strong> <span id="breakpoint-info" data-testid="breakpoint-info">5 values</span>
           </div>
         </div>
       </div>
@@ -77,6 +77,16 @@
     });
 
     MaplibreTransition.init(map);
+
+    // Expose test hooks for Playwright
+    window.__testHooks = {
+      map: map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise(resolve => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      })
+    };
 
     let lastClickedFeature = null;
 

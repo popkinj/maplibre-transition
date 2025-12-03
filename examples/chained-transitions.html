@@ -25,14 +25,14 @@
   <main>
     <div class="example-container">
       <div class="map-container">
-        <div id="map"></div>
+        <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Chained Transitions</h2>
           <p>Click on a Canadian city, then choose a chain type to create sequential animations.</p>
 
           <div class="control-group">
             <label>Chain Type</label>
-            <select id="chain-type">
+            <select id="chain-type" data-testid="chain-type-select">
               <option value="simple">Simple Chain (2 steps)</option>
               <option value="complex">Complex Chain (4 steps)</option>
               <option value="loop">Continuous Loop</option>
@@ -41,11 +41,11 @@
 
           <div class="control-group">
             <label>Step Duration: <span class="value-display" id="duration-value">800ms</span></label>
-            <input type="range" id="duration" min="300" max="2000" value="800" step="100">
+            <input type="range" id="duration" data-testid="duration-slider" min="300" max="2000" value="800" step="100">
           </div>
 
-          <button id="animate">Start Chain</button>
-          <button id="stop" style="background: var(--secondary-color); margin-top: 0.5rem;" disabled>Stop Loop</button>
+          <button id="animate" data-testid="animate-button">Start Chain</button>
+          <button id="stop" data-testid="stop-button" style="background: var(--secondary-color); margin-top: 0.5rem;" disabled>Stop Loop</button>
         </div>
       </div>
     </div>
@@ -63,6 +63,16 @@
     });
 
     MaplibreTransition.init(map);
+
+    // Expose test hooks for Playwright
+    window.__testHooks = {
+      map: map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise(resolve => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      })
+    };
 
     let isLooping = false;
     let stopLoop = false;

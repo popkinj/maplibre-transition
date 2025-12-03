@@ -14,7 +14,7 @@ import { rgb, hsl, lab } from "d3-color";
  * @property {() => void} [onComplete] - Callback function to execute when transition completes
  * @property {() => void} [onStart] - Callback function to execute when transition starts
  */
-interface TransitionOptions {
+export interface TransitionOptions {
   duration?: number;
   ease?:
     | "linear"
@@ -37,7 +37,7 @@ interface TransitionOptions {
  * @interface TransitionState
  * @property {string | number} [key: string] - Maps style property names to their current values
  */
-interface TransitionState {
+export interface TransitionState {
   [key: string]: string | number;
 }
 
@@ -46,7 +46,7 @@ interface TransitionState {
  * @interface TransitionScales
  * @property {any} [key: string] - Maps transition keys to their corresponding d3 scales
  */
-interface TransitionScales {
+export interface TransitionScales {
   [key: string]: any;
 }
 
@@ -411,3 +411,6 @@ export function init(map: Map): void {
 export default {
   init,
 };
+
+// Export internal functions for testing
+export { camelToKebab, getColorInterpolator };

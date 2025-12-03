@@ -30,24 +30,24 @@
   <main>
     <div class="example-container">
       <div class="map-container">
-        <div id="map"></div>
+        <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Vector Tiles Transitions</h2>
           <p>Click on countries to animate their fill color. This demonstrates transitions with vector tile sources using sourceLayer.</p>
 
           <div class="control-group">
             <label>Transition Duration: <span class="value-display" id="duration-value">1000ms</span></label>
-            <input type="range" id="duration" min="300" max="3000" value="1000" step="100">
+            <input type="range" id="duration" data-testid="duration-slider" min="300" max="3000" value="1000" step="100">
           </div>
 
           <div class="control-group">
             <label>Highlight Color</label>
-            <input type="color" id="color" value="#ff1493">
+            <input type="color" id="color" data-testid="color-picker" value="#ff1493">
           </div>
 
           <div class="control-group">
             <label>Easing Function</label>
-            <select id="easing">
+            <select id="easing" data-testid="easing-select">
               <option value="cubic" selected>Cubic</option>
               <option value="quad">Quadratic</option>
               <option value="elastic">Elastic</option>
@@ -55,10 +55,10 @@
             </select>
           </div>
 
-          <button id="reset">Reset All Countries</button>
+          <button id="reset" data-testid="reset-button">Reset All Countries</button>
 
           <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Clicked:</strong> <span id="clicked-country">None</span>
+            <strong>Clicked:</strong> <span id="clicked-country" data-testid="clicked-country-display">None</span>
           </div>
         </div>
       </div>
@@ -76,6 +76,16 @@
     });
 
     MaplibreTransition.init(map);
+
+    // Expose test hooks for Playwright
+    window.__testHooks = {
+      map: map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise(resolve => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      })
+    };
 
     const clickedCountries = new Set();
 

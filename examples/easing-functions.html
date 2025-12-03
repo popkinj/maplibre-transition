@@ -69,16 +69,16 @@
   <main>
     <div class="example-container">
       <div class="map-container">
-        <div id="map"></div>
+        <div id="map" data-testid="map-container"></div>
         <div class="easing-grid">
           <h2>Easing Functions</h2>
           <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
             Click on a Canadian city, then click an easing function to see how it affects the animation.
           </p>
           <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Last clicked:</strong> <span id="clicked-city">None</span>
+            <strong>Last clicked:</strong> <span id="clicked-city" data-testid="clicked-city-display">None</span>
           </div>
-          <div id="easing-list"></div>
+          <div id="easing-list" data-testid="easing-list"></div>
         </div>
       </div>
     </div>
@@ -96,6 +96,16 @@
     });
 
     MaplibreTransition.init(map);
+
+    // Expose test hooks for Playwright
+    window.__testHooks = {
+      map: map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise(resolve => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      })
+    };
 
     const easingFunctions = [
       { name: 'linear', description: 'Constant speed' },

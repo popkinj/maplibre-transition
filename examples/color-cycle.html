@@ -25,19 +25,19 @@
   <main>
     <div class="example-container">
       <div class="map-container">
-        <div id="map"></div>
+        <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Color Cycling</h2>
           <p>Watch Canadian cities cycle through color palettes with staggered animations.</p>
 
           <div class="control-group">
             <label>Duration: <span class="value-display" id="duration-value">3000ms</span></label>
-            <input type="range" id="duration" min="1000" max="10000" value="3000" step="500">
+            <input type="range" id="duration" data-testid="duration-slider" min="1000" max="10000" value="3000" step="500">
           </div>
 
           <div class="control-group">
             <label>Easing Function</label>
-            <select id="easing">
+            <select id="easing" data-testid="easing-select">
               <option value="linear">Linear</option>
               <option value="quad">Quadratic</option>
               <option value="cubic">Cubic</option>
@@ -48,7 +48,7 @@
 
           <div class="control-group">
             <label>Color Palette</label>
-            <select id="palette">
+            <select id="palette" data-testid="palette-select">
               <option value="rainbow" selected>Rainbow</option>
               <option value="warm">Warm Tones</option>
               <option value="cool">Cool Tones</option>
@@ -57,7 +57,7 @@
             </select>
           </div>
 
-          <button id="animate">Start Color Cycle</button>
+          <button id="animate" data-testid="animate-button">Start Color Cycle</button>
         </div>
       </div>
     </div>
@@ -75,6 +75,16 @@
     });
 
     MaplibreTransition.init(map);
+
+    // Expose test hooks for Playwright
+    window.__testHooks = {
+      map: map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise(resolve => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      })
+    };
 
     const palettes = {
       rainbow: ['#088', '#f00', '#00f', '#ff0', '#f0f', '#0ff', '#088'],

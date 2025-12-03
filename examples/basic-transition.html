@@ -25,19 +25,19 @@
   <main>
     <div class="example-container">
       <div class="map-container">
-        <div id="map"></div>
+        <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Basic Transition</h2>
           <p>Click on a Canadian capital city to animate its radius and opacity. Adjust the parameters to see how they affect the transition.</p>
 
           <div class="control-group">
             <label>Duration: <span class="value-display" id="duration-value">1000ms</span></label>
-            <input type="range" id="duration" min="100" max="3000" value="1000" step="100">
+            <input type="range" id="duration" data-testid="duration-slider" min="100" max="3000" value="1000" step="100">
           </div>
 
           <div class="control-group">
             <label>Easing Function</label>
-            <select id="easing">
+            <select id="easing" data-testid="easing-select">
               <option value="linear">Linear</option>
               <option value="quad">Quadratic</option>
               <option value="cubic" selected>Cubic</option>
@@ -50,7 +50,7 @@
           </div>
 
           <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Last clicked:</strong> <span id="clicked-city">None</span>
+            <strong>Last clicked:</strong> <span id="clicked-city" data-testid="clicked-city-display">None</span>
           </div>
         </div>
       </div>
@@ -69,6 +69,16 @@
     });
 
     MaplibreTransition.init(map);
+
+    // Expose test hooks for Playwright
+    window.__testHooks = {
+      map: map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise(resolve => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      })
+    };
 
     map.on('load', () => {
       // Add the Canadian cities source

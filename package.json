@@ -18,7 +18,12 @@
     "serve:examples": "vite --config vite.examples.config.js",
     "build:examples": "npm run build && vite build --config vite.examples.config.js",
     "deploy:examples": "npm run build:examples && gh-pages -d examples-dist",
-    "test": "jest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:all": "npm run test && npm run test:e2e",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -43,6 +48,7 @@
     "maplibre-gl": ">=3.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.0",
     "@rollup/plugin-typescript": "^11.0.0",
@@ -50,12 +56,15 @@
     "@types/d3-ease": "^3.0.2",
     "@types/d3-interpolate": "^3.0.4",
     "@types/d3-scale": "^4.0.9",
+    "@vitest/coverage-v8": "^4.0.15",
     "gh-pages": "^6.3.0",
+    "jsdom": "^27.2.0",
     "maplibre-gl": "^5.0.0",
     "rollup": "^3.0.0",
     "tslib": "^2.6.0",
     "typescript": "^5.0.0",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^4.0.15"
   },
   "dependencies": {
     "d3-color": "^3.1.0",

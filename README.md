@@ -225,8 +225,23 @@ map.transition(feature, {
 });
 ```
 
+## Live Demo
+
+Interactive demos are available at: **[https://popkinj.github.io/maplibre-transition/](https://popkinj.github.io/maplibre-transition/)**
+
+The demo site includes examples for:
+- Basic Transition - Simple radius transitions on click
+- Color Animation - Color property transitions
+- Color Cycling - Multi-breakpoint color cycles
+- Easing Functions - Compare all 9 easing types
+- Multiple Properties - Animate several properties together
+- Chained Transitions - Sequential animation chains
+- Hover Effects - Mouse-triggered transitions
+- Multi-Breakpoint - Complex piecewise animations
+- Vector Tiles - Transitions with vector tile sources
+
 ## Examples
-I've put together some simple working examples in Observable, [here](https://observablehq.com/d/b9a97acdf712a77b). 
+I've put together some simple working examples in Observable, [here](https://observablehq.com/d/b9a97acdf712a77b).
 
 ## Development
 
@@ -242,4 +257,44 @@ npm run dev
 
 # Open the development webserver that refreshes on saving.
 npm run serve
-``` 
+```
+
+## Testing
+
+The project includes comprehensive unit and E2E tests.
+
+### Unit Tests (Vitest)
+
+```bash
+# Run unit tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+### E2E Tests (Playwright)
+
+```bash
+# Run E2E tests (headless)
+npm run test:e2e
+
+# Run E2E tests with interactive UI
+npm run test:e2e:ui
+
+# Run E2E tests in headed browser
+npm run test:e2e:headed
+
+# Run all tests (unit + E2E)
+npm run test:all
+```
+
+## Deployment
+
+### Deploy Demo Pages to GitHub Pages
+
+```bash
+npm run deploy:examples
+```
+
+This deploys the `examples/` directory to the `gh-pages` branch, making demos available at `https://popkinj.github.io/maplibre-transition/`. 
