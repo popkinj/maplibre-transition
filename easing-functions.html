@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Easing Functions - MapLibre Transition</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+    />
+    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <style>
+      .easing-grid {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px var(--shadow-lg);
+        max-width: 400px;
+        z-index: 100;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+      }
+      .easing-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 2px solid transparent;
+        gap: 0.5rem;
+      }
+      .easing-item:nth-child(odd) {
+        background: rgba(0, 0, 0, 0.02);
+      }
+      .easing-item:hover {
+        background: rgba(0, 102, 204, 0.08);
+      }
+      .easing-item:hover .easing-graph,
+      .easing-item.active .easing-graph {
+        background: transparent;
+      }
+      .easing-item.active {
+        background: rgba(0, 102, 204, 0.12);
+        border-color: var(--primary-color);
+      }
+      .easing-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .easing-name {
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+      .easing-description {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .easing-graph {
+        width: 120px;
+        height: 40px;
+        flex-shrink: 0;
+        background: var(--surface);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .easing-graph svg {
+        display: block;
+      }
+      .easing-graph .curve {
+        fill: none;
+        stroke: var(--primary-color);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .easing-graph .axis {
+        stroke: var(--border);
+        stroke-width: 1;
+      }
+      .easing-item.active .easing-graph .curve {
+        stroke: var(--primary-color);
+      }
+    </style>
+    <script type="module" crossorigin src="/maplibre-transition/assets/easing-functions-CuOoO-VH.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-61GIwsDP.js">
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-6SEu6TPq.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <a href="./" class="logo">
+          <div class="logo-icon">T</div>
+          <h1>MapLibre Transition</h1>
+        </a>
+        <nav>
+          <a href="./">Examples</a>
+          <a
+            href="https://github.com/popkinj/maplibre-transition"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+          <div class="easing-grid">
+            <h2>Easing Functions</h2>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-bottom: 1.5rem;
+              "
+            >
+              Click on a Canadian city to animate it. Select an easing function
+              to see how it affects the animation.
+            </p>
+            <div id="easing-list" data-testid="easing-list"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </body>
+</html>

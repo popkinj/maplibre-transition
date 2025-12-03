@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapLibre Transition - Smooth Transitions for MapLibre GL JS</title>
+  <meta name="description" content="A MapLibre GL JS plugin for smooth transitions between map styles with support for colors, easing functions, and multiple breakpoints.">
+  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+        <a href="https://www.npmjs.com/package/maplibre-transition" target="_blank">npm</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Smooth Transitions for MapLibre GL JS</h1>
+      <p>
+        A powerful plugin that adds transition functionality to MapLibre GL JS maps.
+        Animate colors, sizes, opacities, and more with customizable easing functions.
+      </p>
+      <div class="cta">
+        <a href="https://www.npmjs.com/package/maplibre-transition" target="_blank">Install via npm</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank" class="secondary">View on GitHub</a>
+      </div>
+    </section>
+
+    <h2 style="text-align: center; margin-bottom: 2rem; font-size: 2rem;">Interactive Examples</h2>
+
+    <div class="features-grid">
+      <a href="basic-transition.html" class="feature-card">
+        <div class="icon">→</div>
+        <h3>Basic Transition</h3>
+        <p>
+          Learn the fundamentals with simple property transitions.
+          Animate opacity, radius, and other numeric properties with customizable duration and easing.
+        </p>
+      </a>
+
+      <a href="color-animation.html" class="feature-card">
+        <div class="icon">🎨</div>
+        <h3>Color Animation</h3>
+        <p>
+          Smooth color transitions using D3's color interpolation.
+          Supports RGB, HSL, and LAB color spaces for perceptually uniform transitions.
+        </p>
+      </a>
+
+      <a href="color-cycle.html" class="feature-card">
+        <div class="icon">🌈</div>
+        <h3>Color Cycling</h3>
+        <p>
+          Create color cycles with multiple breakpoints.
+          Transition through a spectrum of colors for eye-catching visual effects.
+        </p>
+      </a>
+
+      <a href="easing-functions.html" class="feature-card">
+        <div class="icon">📈</div>
+        <h3>Easing Functions</h3>
+        <p>
+          Explore all available easing functions from d3-ease.
+          Compare linear, elastic, bounce, and other easing types side by side.
+        </p>
+      </a>
+
+      <a href="multiple-properties.html" class="feature-card">
+        <div class="icon">⚡</div>
+        <h3>Multiple Properties</h3>
+        <p>
+          Transition multiple style properties simultaneously.
+          Create coordinated visual effects with synchronized animations.
+        </p>
+      </a>
+
+      <a href="chained-transitions.html" class="feature-card">
+        <div class="icon">🔗</div>
+        <h3>Chained Transitions</h3>
+        <p>
+          Chain transitions using the onComplete callback.
+          Build complex, sequential animations that flow smoothly from one to the next.
+        </p>
+      </a>
+
+      <a href="hover-effects.html" class="feature-card">
+        <div class="icon">👆</div>
+        <h3>Hover Effects</h3>
+        <p>
+          Interactive hover-triggered transitions.
+          Add smooth visual feedback when users interact with map features.
+        </p>
+      </a>
+
+      <a href="multi-breakpoint.html" class="feature-card">
+        <div class="icon">📊</div>
+        <h3>Multi-Breakpoint</h3>
+        <p>
+          Advanced transitions with multiple breakpoints.
+          Create complex piecewise animations with 3 or more values.
+        </p>
+      </a>
+
+    </div>
+
+    <section style="margin-top: 4rem; padding: 3rem; background: var(--surface); border-radius: 12px;">
+      <h2 style="text-align: center; margin-bottom: 2rem; font-size: 2rem;">Getting Started</h2>
+
+      <div style="max-width: 800px; margin: 0 auto;">
+        <h3 style="margin-bottom: 1rem;">Installation</h3>
+        <pre class="code-block"><code><span class="code-cmd">npm install</span> maplibre-transition</code></pre>
+
+        <h3 style="margin-bottom: 1rem;">Quick Example</h3>
+        <pre class="code-block"><code><span class="code-keyword">import</span> maplibregl <span class="code-keyword">from</span> <span class="code-string">'maplibre-gl'</span>;
+<span class="code-keyword">import</span> MaplibreTransition <span class="code-keyword">from</span> <span class="code-string">'maplibre-transition'</span>;
+
+<span class="code-keyword">const</span> map = <span class="code-keyword">new</span> maplibregl.<span class="code-function">Map</span>({
+  <span class="code-property">container</span>: <span class="code-string">'map'</span>,
+  <span class="code-property">style</span>: <span class="code-string">'https://demotiles.maplibre.org/style.json'</span>,
+  <span class="code-property">center</span>: [<span class="code-number">0</span>, <span class="code-number">0</span>],
+  <span class="code-property">zoom</span>: <span class="code-number">2</span>
+});
+
+<span class="code-comment">// Initialize the plugin</span>
+MaplibreTransition.<span class="code-function">init</span>(map);
+
+<span class="code-comment">// Use transitions</span>
+map.<span class="code-function">transition</span>(feature, {
+  <span class="code-property">duration</span>: <span class="code-number">1000</span>,
+  <span class="code-property">ease</span>: <span class="code-string">'elastic'</span>,
+  <span class="code-property">paint</span>: {
+    <span class="code-string">'circle-radius'</span>: [<span class="code-number">8</span>, <span class="code-number">20</span>],
+    <span class="code-string">'circle-color'</span>: [<span class="code-string">'#667eea'</span>, <span class="code-string">'#64b5f6'</span>]
+  }
+});</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Created by <a href="https://github.com/popkinj" target="_blank">Jamie Popkin</a> |
+      <a href="https://github.com/popkinj/maplibre-transition" target="_blank">View Source on GitHub</a> |
+      MIT License
+    </p>
+  </footer>
+</body>
+</html>

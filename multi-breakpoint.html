@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Breakpoint Transitions - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script type="module" crossorigin src="/maplibre-transition/assets/multi-breakpoint-Bb0oMRYp.js"></script>
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-61GIwsDP.js">
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-6SEu6TPq.js">
+  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map" data-testid="map-container"></div>
+        <div class="controls">
+          <h2>Multi-Breakpoint Transitions</h2>
+          <p>Select a pattern, then click on a Canadian city to see complex multi-breakpoint animations.</p>
+
+          <div class="control-group">
+            <label>Animation Pattern</label>
+            <select id="pattern" data-testid="pattern-select">
+              <option value="wave">Wave Pattern (5 breakpoints)</option>
+              <option value="bounce">Bounce Pattern (6 breakpoints)</option>
+              <option value="spiral">Spiral Pattern (7 breakpoints)</option>
+              <option value="custom">Custom Rainbow (8 breakpoints)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Duration: <span class="value-display" id="duration-value">3000ms</span></label>
+            <input type="range" id="duration" data-testid="duration-slider" min="1000" max="8000" value="3000" step="500">
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing" data-testid="easing-select">
+              <option value="linear">Linear</option>
+              <option value="cubic">Cubic</option>
+              <option value="sin" selected>Sinusoidal</option>
+              <option value="elastic">Elastic</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Breakpoints:</strong> <span id="breakpoint-info" data-testid="breakpoint-info">5 values</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chained Transitions - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script type="module" crossorigin src="/maplibre-transition/assets/chained-transitions-4ibYG2X9.js"></script>
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-61GIwsDP.js">
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-6SEu6TPq.js">
+  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map" data-testid="map-container"></div>
+        <div class="controls">
+          <h2>Chained Transitions</h2>
+          <p>Select a chain type, then click on a Canadian city to see sequential animations.</p>
+
+          <div class="control-group">
+            <label>Chain Type</label>
+            <select id="chain-type" data-testid="chain-type-select">
+              <option value="simple">Simple Chain (2 steps)</option>
+              <option value="complex">Complex Chain (4 steps)</option>
+              <option value="loop">Continuous Loop</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Step Duration: <span class="value-display" id="duration-value">800ms</span></label>
+            <input type="range" id="duration" data-testid="duration-slider" min="300" max="2000" value="800" step="100">
+          </div>
+
+          <button id="stop" data-testid="stop-button" style="background: var(--secondary-color); display: none;">Stop Loop</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

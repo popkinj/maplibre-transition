@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hover Effects - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <style>
+    #map {
+      cursor: pointer;
+    }
+  </style>
+  <script type="module" crossorigin src="/maplibre-transition/assets/hover-effects-BnE66Jjh.js"></script>
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-61GIwsDP.js">
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-6SEu6TPq.js">
+  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map" data-testid="map-container"></div>
+        <div class="controls">
+          <h2>Hover Effects</h2>
+          <p>Hover over Canadian cities to trigger smooth transition effects.</p>
+
+          <div class="control-group">
+            <label>Hover Duration: <span class="value-display" id="duration-value">400ms</span></label>
+            <input type="range" id="duration" data-testid="duration-slider" min="100" max="1000" value="400" step="50">
+          </div>
+
+          <div class="control-group">
+            <label>Hover Effect</label>
+            <select id="effect" data-testid="effect-select">
+              <option value="grow">Grow & Brighten</option>
+              <option value="pulse">Pulse</option>
+              <option value="color-shift">Color Shift</option>
+              <option value="glow">Glow Effect</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing" data-testid="easing-select">
+              <option value="quad" selected>Quadratic</option>
+              <option value="cubic">Cubic</option>
+              <option value="elastic">Elastic</option>
+              <option value="bounce">Bounce</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Hover Count:</strong> <span id="hover-count" data-testid="hover-count-display">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

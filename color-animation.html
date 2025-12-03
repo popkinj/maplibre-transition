@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Animation - MapLibre Transition</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script type="module" crossorigin src="/maplibre-transition/assets/color-animation-CuPLmxwh.js"></script>
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-61GIwsDP.js">
+  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="./" class="logo">
+        <div class="logo-icon">T</div>
+        <h1>MapLibre Transition</h1>
+      </a>
+      <nav>
+        <a href="./">Examples</a>
+        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="example-container">
+      <div class="map-container">
+        <div id="map" data-testid="map-container"></div>
+        <div class="controls">
+          <h2>Color Animation</h2>
+          <p>Click on a province to animate its color. Smooth color transitions using D3's color interpolation.</p>
+
+          <div class="control-group">
+            <label>Duration: <span class="value-display" id="duration-value">1000ms</span></label>
+            <input type="range" id="duration" data-testid="duration-slider" min="500" max="5000" value="1000" step="100">
+          </div>
+
+          <div class="control-group">
+            <label>Target Color</label>
+            <input type="color" id="target-color" data-testid="target-color-picker" value="#ff0000">
+          </div>
+
+          <div class="control-group">
+            <label>Easing Function</label>
+            <select id="easing" data-testid="easing-select">
+              <option value="linear" selected>Linear</option>
+              <option value="quad">Quadratic</option>
+              <option value="cubic">Cubic</option>
+              <option value="sin">Sinusoidal</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Click count:</strong> <span id="click-count" data-testid="click-count-display">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>
