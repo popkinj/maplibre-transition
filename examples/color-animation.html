@@ -112,6 +112,8 @@
       const clickCountEl = document.getElementById('click-count');
 
       let clickCount = 0;
+      const defaultColor = '#088';
+      const featureColors = new Map(); // Track current color for each feature
 
       // Update duration display
       durationSlider.addEventListener('input', (e) => {
@@ -123,15 +125,24 @@
         clickCount++;
         clickCountEl.textContent = clickCount;
 
+        const feature = e.features[0];
+        const featureId = feature.id;
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
         const targetColor = targetColorInput.value;
 
-        map.transition(e.features[0], {
+        // Get current color (from our tracking map, or default)
+        const currentColor = featureColors.get(featureId) || defaultColor;
+
+        map.transition(feature, {
           duration: duration,
           ease: ease,
           paint: {
-            'fill-color': ['#088', targetColor]
+            'fill-color': [currentColor, targetColor]
+          },
+          onComplete: () => {
+            // Update tracked color when transition completes
+            featureColors.set(featureId, targetColor);
           }
         });
       });

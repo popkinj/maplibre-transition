@@ -289,35 +289,72 @@ export function init(map: Map): void {
 
     // Get all paint properties from the options
     const paintProperties = options?.paint || {};
-    
-    // Set up the layer to use feature state for each style
+
+    // Get the current feature state to use as starting values
+    const currentFeatureState = map.getFeatureState({
+      source: feature.source,
+      sourceLayer: feature.sourceLayer,
+      id: feature.id
+    }) || {};
+
+    // Collect default paint values before modifying the paint properties
+    const defaultPaintValues: Record<string, string | number> = {};
+    Object.entries(paintProperties).forEach(([style, values]) => {
+      const kebabStyle = camelToKebab(style);
+      const currentPaint = map.getPaintProperty(feature.layer.id, kebabStyle);
+
+      // Extract the default value - if it's already a coalesce expression, get the fallback
+      if (Array.isArray(currentPaint) && currentPaint[0] === "coalesce") {
+        defaultPaintValues[style] = currentPaint[2];
+      } else if (currentPaint !== undefined && currentPaint !== null) {
+        defaultPaintValues[style] = currentPaint as string | number;
+      } else {
+        // Fallback to first non-null value from the provided values array
+        const firstValidValue = values.find(v => v !== null && v !== undefined);
+        if (firstValidValue !== undefined) {
+          defaultPaintValues[style] = firstValidValue;
+        }
+      }
+    });
+
+    // Set the initial feature state FIRST (before changing paint property to use feature-state)
+    // This prevents a flash of incorrect color when the coalesce expression is first evaluated
+    const initialState: TransitionState = {};
+    Object.entries(paintProperties).forEach(([style, values]) => {
+      const featureStateValue = currentFeatureState[style];
+      const firstNonNullValue = values.find(v => v !== null && v !== undefined);
+      const startValue = featureStateValue !== undefined
+        ? featureStateValue
+        : (defaultPaintValues[style] !== undefined ? defaultPaintValues[style] : firstNonNullValue);
+      if (startValue !== undefined && startValue !== null) {
+        initialState[style] = typeof startValue === 'string' ? startValue : Number(startValue);
+      }
+    });
+    map.setFeatureState(
+      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
+      initialState
+    );
+
+    // Now set up the layer to use feature state for each style
     Object.entries(paintProperties).forEach(([style, values]) => {
       const kebabStyle = camelToKebab(style);
       const currentPaint = map.getPaintProperty(
         feature.layer.id,
         kebabStyle
-      ) as any[];
-      
+      );
+
       // Only modify the paint property if it's not already using feature state
-      if (currentPaint[0] !== "coalesce") {
-        // Check if the current paint is a complex expression (like a case statement)
-        const isComplexExpression = Array.isArray(currentPaint) && currentPaint.length > 1;
-        
-        if (isComplexExpression) {
-          // For complex expressions, wrap the existing expression with coalesce
-          map.setPaintProperty(feature.layer.id, kebabStyle, [
-            "coalesce",
-            ["feature-state", style],
-            currentPaint,
-          ]);
-        } else {
-          // For simple values, use the original approach
-          map.setPaintProperty(feature.layer.id, kebabStyle, [
-            "coalesce",
-            ["feature-state", style],
-            values[0],
-          ]);
-        }
+      if (!Array.isArray(currentPaint) || currentPaint[0] !== "coalesce") {
+        // Use the current paint value as the fallback, or the first value from the array
+        const fallbackValue = (currentPaint !== undefined && currentPaint !== null)
+          ? currentPaint
+          : (defaultPaintValues[style] ?? values.find(v => v !== null && v !== undefined));
+
+        map.setPaintProperty(feature.layer.id, kebabStyle, [
+          "coalesce",
+          ["feature-state", style],
+          fallbackValue,
+        ]);
       }
     });
 
@@ -329,8 +366,30 @@ export function init(map: Map): void {
     // Create scales for each property
     const scales: TransitionScales = {};
     Object.entries(paintProperties).forEach(([style, values]) => {
-      const colorInterpolator = getColorInterpolator(values);
-      
+      // Get the starting value: use feature state if available, otherwise use the default paint value
+      const featureStateValue = currentFeatureState[style];
+      const startValue = featureStateValue !== undefined ? featureStateValue : defaultPaintValues[style];
+
+      // Handle null/undefined first values by replacing them with the current state
+      // This allows users to specify [null, targetValue] to mean "from current state to target"
+      const firstValue = values[0];
+      let effectiveValues: (string | number)[];
+
+      if (firstValue === null || firstValue === undefined) {
+        // Replace null/undefined with current state, keep the rest
+        effectiveValues = startValue !== undefined
+          ? [startValue, ...values.slice(1)]
+          : values.slice(1);
+      } else {
+        // Only prepend the starting value if it's different from the first value in the array
+        // This avoids duplicating values when the user explicitly provides the start value
+        const startsDifferent = startValue !== undefined && startValue !== firstValue &&
+          (typeof startValue !== 'number' || typeof firstValue !== 'number' || startValue !== Number(firstValue));
+        effectiveValues = startsDifferent ? [startValue, ...values] : values;
+      }
+
+      const colorInterpolator = getColorInterpolator(effectiveValues);
+
       if (colorInterpolator) {
         // Use color interpolation for color values
         const wrappedScale = (t: number) => {
@@ -342,7 +401,7 @@ export function init(map: Map): void {
         scales[`${feature.id}-${style}`] = wrappedScale;
       } else {
         // Use regular linear interpolation for non-color values
-        const numericValues = values.map(v => Number(v));
+        const numericValues = effectiveValues.map(v => Number(v));
 
         // Create domain points that match the number of range values
         // For multi-breakpoint arrays like [10, 30, 10], we need matching domain points
@@ -365,16 +424,6 @@ export function init(map: Map): void {
         scales[`${feature.id}-${style}`] = wrappedScale;
       }
     });
-
-    // Set the initial feature state
-    const initialState: TransitionState = {};
-    Object.entries(paintProperties).forEach(([style, values]) => {
-      initialState[style] = typeof values[0] === 'string' ? values[0] : Number(values[0]);
-    });
-    map.setFeatureState(
-      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
-      initialState
-    );
 
     // Check if there are existing transitions for this feature
     const existingTransitions = Array.from(sharedProperties.transitions).filter(

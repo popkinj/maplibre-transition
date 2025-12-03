@@ -93,6 +93,16 @@
 
     let hoverCount = 0;
     let hoveredFeatureId = null;
+    let hoveredFeatureState = null; // Track the hover end state for smooth transition back
+
+    // Original/default values
+    const defaults = {
+      'circle-radius': 12,
+      'circle-color': '#667eea',
+      'circle-opacity': 0.7,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff'
+    };
 
     map.on('load', () => {
       // Add Canadian cities
@@ -141,34 +151,48 @@
         const effect = effectSelect.value;
 
         let paint = {};
+        let endState = { ...defaults }; // Track what we're transitioning TO
 
         switch (effect) {
           case 'grow':
             paint = {
-              'circle-radius': [12, 20],
-              'circle-opacity': [0.7, 1]
+              'circle-radius': [defaults['circle-radius'], 20],
+              'circle-opacity': [defaults['circle-opacity'], 1]
             };
+            endState['circle-radius'] = 20;
+            endState['circle-opacity'] = 1;
             break;
           case 'pulse':
             paint = {
-              'circle-radius': [12, 18, 15],
-              'circle-opacity': [0.7, 1, 0.85]
+              'circle-radius': [defaults['circle-radius'], 18, 15],
+              'circle-opacity': [defaults['circle-opacity'], 1, 0.85]
             };
+            // For multi-breakpoint, end state is the last value
+            endState['circle-radius'] = 15;
+            endState['circle-opacity'] = 0.85;
             break;
           case 'color-shift':
             paint = {
-              'circle-color': ['#667eea', '#f093fb'],
-              'circle-radius': [12, 16]
+              'circle-color': [defaults['circle-color'], '#f093fb'],
+              'circle-radius': [defaults['circle-radius'], 16]
             };
+            endState['circle-color'] = '#f093fb';
+            endState['circle-radius'] = 16;
             break;
           case 'glow':
             paint = {
-              'circle-opacity': [0.7, 1],
-              'circle-stroke-width': [2, 6],
-              'circle-stroke-color': ['#ffffff', '#667eea']
+              'circle-opacity': [defaults['circle-opacity'], 1],
+              'circle-stroke-width': [defaults['circle-stroke-width'], 6],
+              'circle-stroke-color': [defaults['circle-stroke-color'], '#667eea']
             };
+            endState['circle-opacity'] = 1;
+            endState['circle-stroke-width'] = 6;
+            endState['circle-stroke-color'] = '#667eea';
             break;
         }
+
+        // Store the end state so we can transition back from it
+        hoveredFeatureState = endState;
 
         map.transition(feature, {
           duration: duration,
@@ -183,25 +207,26 @@
         const features = map.queryRenderedFeatures({ layers: ['cities-layer'] });
         const feature = features.find(f => f.id === hoveredFeatureId);
 
-        if (feature) {
+        if (feature && hoveredFeatureState) {
           const duration = parseInt(durationSlider.value);
           const ease = easingSelect.value;
 
-          // Return to original state
+          // Return to original state FROM the hover end state
           map.transition(feature, {
             duration: duration,
             ease: ease,
             paint: {
-              'circle-radius': [null, 12],
-              'circle-color': [null, '#667eea'],
-              'circle-opacity': [null, 0.7],
-              'circle-stroke-width': [null, 2],
-              'circle-stroke-color': [null, '#ffffff']
+              'circle-radius': [hoveredFeatureState['circle-radius'], defaults['circle-radius']],
+              'circle-color': [hoveredFeatureState['circle-color'], defaults['circle-color']],
+              'circle-opacity': [hoveredFeatureState['circle-opacity'], defaults['circle-opacity']],
+              'circle-stroke-width': [hoveredFeatureState['circle-stroke-width'], defaults['circle-stroke-width']],
+              'circle-stroke-color': [hoveredFeatureState['circle-stroke-color'], defaults['circle-stroke-color']]
             }
           });
         }
 
         hoveredFeatureId = null;
+        hoveredFeatureState = null;
       });
     });
   </script>
