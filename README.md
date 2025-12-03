@@ -246,9 +246,6 @@ The demo site includes examples for:
 - Multi-Breakpoint - Complex piecewise animations
 - Vector Tiles - Transitions with vector tile sources
 
-## Examples
-
-I've put together some simple working examples in Observable, [here](https://popkinj.github.io/maplibre-transition/).
 
 ## Development
 
