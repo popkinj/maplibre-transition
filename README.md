@@ -248,7 +248,7 @@ The demo site includes examples for:
 
 ## Examples
 
-I've put together some simple working examples in Observable, [here](https://observablehq.com/d/b9a97acdf712a77b).
+I've put together some simple working examples in Observable, [here](https://popkinj.github.io/maplibre-transition/).
 
 ## Development
 
