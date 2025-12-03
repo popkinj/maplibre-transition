@@ -98,7 +98,8 @@
       // Add Canadian cities
       map.addSource('cities', {
         type: 'geojson',
-        data: canadianCapitalCities
+        data: canadianCapitalCities,
+        generateId: true
       });
 
       map.addLayer({

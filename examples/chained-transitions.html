@@ -28,7 +28,7 @@
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Chained Transitions</h2>
-          <p>Click on a Canadian city, then choose a chain type to create sequential animations.</p>
+          <p>Select a chain type, then click on a Canadian city to see sequential animations.</p>
 
           <div class="control-group">
             <label>Chain Type</label>
@@ -44,8 +44,7 @@
             <input type="range" id="duration" data-testid="duration-slider" min="300" max="2000" value="800" step="100">
           </div>
 
-          <button id="animate" data-testid="animate-button">Start Chain</button>
-          <button id="stop" data-testid="stop-button" style="background: var(--secondary-color); margin-top: 0.5rem;" disabled>Stop Loop</button>
+          <button id="stop" data-testid="stop-button" style="background: var(--secondary-color); display: none;">Stop Loop</button>
         </div>
       </div>
     </div>
@@ -76,13 +75,14 @@
 
     let isLooping = false;
     let stopLoop = false;
-    let lastClickedFeature = null;
+    let loopingFeature = null;
 
     map.on('load', () => {
       // Add Canadian cities
       map.addSource('cities', {
         type: 'geojson',
-        data: canadianCapitalCities
+        data: canadianCapitalCities,
+        generateId: true
       });
 
       map.addLayer({
@@ -101,7 +101,6 @@
       const chainTypeSelect = document.getElementById('chain-type');
       const durationSlider = document.getElementById('duration');
       const durationValue = document.getElementById('duration-value');
-      const animateBtn = document.getElementById('animate');
       const stopBtn = document.getElementById('stop');
 
       durationSlider.addEventListener('input', (e) => {
@@ -109,9 +108,6 @@
       });
 
       function simpleChain(feature, duration) {
-        animateBtn.textContent = 'Step 1/2...';
-        animateBtn.disabled = true;
-
         // Step 1: Grow and turn red
         map.transition(feature, {
           duration: duration,
@@ -122,17 +118,12 @@
           },
           onComplete: () => {
             // Step 2: Shrink and turn back to blue
-            animateBtn.textContent = 'Step 2/2...';
             map.transition(feature, {
               duration: duration,
               ease: 'bounce',
               paint: {
                 'circle-radius': [30, 15],
                 'circle-color': ['#ff0000', '#0066cc']
-              },
-              onComplete: () => {
-                animateBtn.textContent = 'Start Chain';
-                animateBtn.disabled = false;
               }
             });
           }
@@ -140,9 +131,6 @@
       }
 
       function complexChain(feature, duration) {
-        animateBtn.textContent = 'Step 1/4...';
-        animateBtn.disabled = true;
-
         // Step 1: Grow and turn red
         map.transition(feature, {
           duration: duration,
@@ -154,7 +142,6 @@
           },
           onComplete: () => {
             // Step 2: Turn green
-            animateBtn.textContent = 'Step 2/4...';
             map.transition(feature, {
               duration: duration,
               ease: 'linear',
@@ -164,7 +151,6 @@
               },
               onComplete: () => {
                 // Step 3: Turn yellow and shrink
-                animateBtn.textContent = 'Step 3/4...';
                 map.transition(feature, {
                   duration: duration,
                   ease: 'cubic',
@@ -174,7 +160,6 @@
                   },
                   onComplete: () => {
                     // Step 4: Return to original
-                    animateBtn.textContent = 'Step 4/4...';
                     map.transition(feature, {
                       duration: duration,
                       ease: 'elastic',
@@ -183,10 +168,6 @@
                         'circle-color': ['#ffff00', '#0066cc'],
                         'circle-opacity': [1, 0.7],
                         'circle-stroke-width': [5, 2]
-                      },
-                      onComplete: () => {
-                        animateBtn.textContent = 'Start Chain';
-                        animateBtn.disabled = false;
                       }
                     });
                   }
@@ -198,12 +179,13 @@
       }
 
       function continuousLoop(feature, duration) {
-        if (stopLoop) {
-          stopLoop = false;
-          isLooping = false;
-          stopBtn.disabled = true;
-          animateBtn.disabled = false;
-          animateBtn.textContent = 'Start Chain';
+        if (stopLoop || loopingFeature !== feature) {
+          if (loopingFeature === feature) {
+            stopLoop = false;
+            isLooping = false;
+            loopingFeature = null;
+            stopBtn.style.display = 'none';
+          }
           return;
         }
 
@@ -216,44 +198,43 @@
             'circle-opacity': [0.7, 1, 0.7]
           },
           onComplete: () => {
-            if (isLooping && !stopLoop) {
+            if (isLooping && !stopLoop && loopingFeature === feature) {
               continuousLoop(feature, duration);
             }
           }
         });
       }
 
-      // Click handler for cities
+      // Click handler for cities - animate directly
       map.on('click', 'cities-layer', (e) => {
-        lastClickedFeature = e.features[0];
-      });
-
-      animateBtn.addEventListener('click', () => {
-        if (!lastClickedFeature) {
-          alert('Please click a city first!');
-          return;
-        }
-
+        const feature = e.features[0];
         const duration = parseInt(durationSlider.value);
         const chainType = chainTypeSelect.value;
 
+        // If currently looping, stop the loop
+        if (isLooping) {
+          stopLoop = true;
+          isLooping = false;
+          loopingFeature = null;
+          stopBtn.style.display = 'none';
+        }
+
         if (chainType === 'simple') {
-          simpleChain(lastClickedFeature, duration);
+          simpleChain(feature, duration);
         } else if (chainType === 'complex') {
-          complexChain(lastClickedFeature, duration);
+          complexChain(feature, duration);
         } else if (chainType === 'loop') {
           isLooping = true;
           stopLoop = false;
-          animateBtn.disabled = true;
-          stopBtn.disabled = false;
-          animateBtn.textContent = 'Looping...';
-          continuousLoop(lastClickedFeature, duration);
+          loopingFeature = feature;
+          stopBtn.style.display = 'block';
+          continuousLoop(feature, duration);
         }
       });
 
       stopBtn.addEventListener('click', () => {
         stopLoop = true;
-        stopBtn.disabled = true;
+        stopBtn.style.display = 'none';
       });
 
       // Change cursor on hover

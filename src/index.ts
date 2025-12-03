@@ -151,7 +151,8 @@ function animateFeature(map: Map, feature: any, keyName: string, transitionsSet:
   if (!transition) return;
 
   const scale = transition[keyName];
-  const endTime = scale.domain()[1];
+  const domain = scale.domain();
+  const endTime = domain[domain.length - 1];
   
   if (now >= endTime) {
     // Transition is complete - set final value and remove from transitions
@@ -167,7 +168,8 @@ function animateFeature(map: Map, feature: any, keyName: string, transitionsSet:
           // For reversed transitions, we need to get the final value from the scale
           const scale = transition[key];
           if (scale && scale.range) {
-            finalState[styleName] = scale.range()[1];
+            const range = scale.range();
+            finalState[styleName] = range[range.length - 1];
           }
         }
       }
@@ -341,8 +343,15 @@ export function init(map: Map): void {
       } else {
         // Use regular linear interpolation for non-color values
         const numericValues = values.map(v => Number(v));
+
+        // Create domain points that match the number of range values
+        // For multi-breakpoint arrays like [10, 30, 10], we need matching domain points
+        const domainPoints = numericValues.map((_, i) =>
+          now + (duration * i) / (numericValues.length - 1)
+        );
+
         const scale = scaleLinear()
-          .domain([now, now + duration])
+          .domain(domainPoints)
           .range(numericValues)
           .clamp(true);
 

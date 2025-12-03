@@ -124,29 +124,29 @@
 
       <div style="max-width: 800px; margin: 0 auto;">
         <h3 style="margin-bottom: 1rem;">Installation</h3>
-        <pre style="background: #2d2d2d; color: #f8f8f2; padding: 1.5rem; border-radius: 8px; overflow-x: auto; margin-bottom: 2rem;"><code>npm install maplibre-transition</code></pre>
+        <pre class="code-block"><code><span class="code-cmd">npm install</span> maplibre-transition</code></pre>
 
         <h3 style="margin-bottom: 1rem;">Quick Example</h3>
-        <pre style="background: #2d2d2d; color: #f8f8f2; padding: 1.5rem; border-radius: 8px; overflow-x: auto; line-height: 1.6;"><code>import maplibregl from 'maplibre-gl';
-import MaplibreTransition from 'maplibre-transition';
+        <pre class="code-block"><code><span class="code-keyword">import</span> maplibregl <span class="code-keyword">from</span> <span class="code-string">'maplibre-gl'</span>;
+<span class="code-keyword">import</span> MaplibreTransition <span class="code-keyword">from</span> <span class="code-string">'maplibre-transition'</span>;
 
-const map = new maplibregl.Map({
-  container: 'map',
-  style: 'https://demotiles.maplibre.org/style.json',
-  center: [0, 0],
-  zoom: 2
+<span class="code-keyword">const</span> map = <span class="code-keyword">new</span> maplibregl.<span class="code-function">Map</span>({
+  <span class="code-property">container</span>: <span class="code-string">'map'</span>,
+  <span class="code-property">style</span>: <span class="code-string">'https://demotiles.maplibre.org/style.json'</span>,
+  <span class="code-property">center</span>: [<span class="code-number">0</span>, <span class="code-number">0</span>],
+  <span class="code-property">zoom</span>: <span class="code-number">2</span>
 });
 
-// Initialize the plugin
-MaplibreTransition.init(map);
+<span class="code-comment">// Initialize the plugin</span>
+MaplibreTransition.<span class="code-function">init</span>(map);
 
-// Use transitions
-map.transition(feature, {
-  duration: 1000,
-  ease: 'elastic',
-  paint: {
-    'circle-radius': [5, 15],
-    'circle-color': ['#ff0000', '#00ff00']
+<span class="code-comment">// Use transitions</span>
+map.<span class="code-function">transition</span>(feature, {
+  <span class="code-property">duration</span>: <span class="code-number">1000</span>,
+  <span class="code-property">ease</span>: <span class="code-string">'elastic'</span>,
+  <span class="code-property">paint</span>: {
+    <span class="code-string">'circle-radius'</span>: [<span class="code-number">8</span>, <span class="code-number">20</span>],
+    <span class="code-string">'circle-color'</span>: [<span class="code-string">'#667eea'</span>, <span class="code-string">'#64b5f6'</span>]
   }
 });</code></pre>
       </div>

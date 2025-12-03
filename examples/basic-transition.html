@@ -1,145 +1,163 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Basic Transition - MapLibre Transition</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="styles/shared.css">
-  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-</head>
-<body>
-  <header>
-    <div class="header-content">
-      <a href="./" class="logo">
-        <div class="logo-icon">T</div>
-        <h1>MapLibre Transition</h1>
-      </a>
-      <nav>
-        <a href="./">Examples</a>
-        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
-      </nav>
-    </div>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Basic Transition - MapLibre Transition</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+    />
+    <link rel="stylesheet" href="styles/shared.css" />
+    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <a href="./" class="logo">
+          <div class="logo-icon">T</div>
+          <h1>MapLibre Transition</h1>
+        </a>
+        <nav>
+          <a href="./">Examples</a>
+          <a
+            href="https://github.com/popkinj/maplibre-transition"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
 
-  <main>
-    <div class="example-container">
-      <div class="map-container">
-        <div id="map" data-testid="map-container"></div>
-        <div class="controls">
-          <h2>Basic Transition</h2>
-          <p>Click on a Canadian capital city to animate its radius and opacity. Adjust the parameters to see how they affect the transition.</p>
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+          <div class="controls">
+            <h2>Basic Transition</h2>
+            <p>
+              Click on a Canadian capital city to animate its radius and
+              opacity. Adjust the parameters to see how they affect the
+              transition.
+            </p>
 
-          <div class="control-group">
-            <label>Duration: <span class="value-display" id="duration-value">1000ms</span></label>
-            <input type="range" id="duration" data-testid="duration-slider" min="100" max="3000" value="1000" step="100">
-          </div>
+            <div class="control-group">
+              <label
+                >Duration:
+                <span class="value-display" id="duration-value"
+                  >1000ms</span
+                ></label
+              >
+              <input
+                type="range"
+                id="duration"
+                data-testid="duration-slider"
+                min="100"
+                max="3000"
+                value="1000"
+                step="100"
+              />
+            </div>
 
-          <div class="control-group">
-            <label>Easing Function</label>
-            <select id="easing" data-testid="easing-select">
-              <option value="linear">Linear</option>
-              <option value="quad">Quadratic</option>
-              <option value="cubic" selected>Cubic</option>
-              <option value="sin">Sinusoidal</option>
-              <option value="exp">Exponential</option>
-              <option value="circle">Circular</option>
-              <option value="elastic">Elastic</option>
-              <option value="bounce">Bounce</option>
-            </select>
-          </div>
-
-          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Last clicked:</strong> <span id="clicked-city" data-testid="clicked-city-display">None</span>
+            <div class="control-group">
+              <label>Easing Function</label>
+              <select id="easing" data-testid="easing-select">
+                <option value="linear">Linear</option>
+                <option value="quad">Quadratic</option>
+                <option value="cubic" selected>Cubic</option>
+                <option value="sin">Sinusoidal</option>
+                <option value="exp">Exponential</option>
+                <option value="circle">Circular</option>
+                <option value="elastic">Elastic</option>
+                <option value="bounce">Bounce</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </main>
+    </main>
 
-  <script type="module">
-    import MaplibreTransition from '../dist/index.esm.js';
-    import { canadianCapitalCities } from './data/canadian-cities.js';
+    <script type="module">
+      import MaplibreTransition from "../dist/index.esm.js";
+      import { canadianCapitalCities } from "./data/canadian-cities.js";
 
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://demotiles.maplibre.org/style.json',
-      center: [-95, 60],
-      zoom: 3
-    });
-
-    MaplibreTransition.init(map);
-
-    // Expose test hooks for Playwright
-    window.__testHooks = {
-      map: map,
-      getTransitionCount: () => map.transition.transitions.size,
-      waitForLoad: () => new Promise(resolve => {
-        if (map.loaded()) resolve();
-        else map.once('load', resolve);
-      })
-    };
-
-    map.on('load', () => {
-      // Add the Canadian cities source
-      map.addSource('cities', {
-        type: 'geojson',
-        data: canadianCapitalCities
+      const map = new maplibregl.Map({
+        container: "map",
+        style: "https://demotiles.maplibre.org/style.json",
+        center: [-95, 60],
+        zoom: 3,
       });
 
-      // Add a circle layer
-      map.addLayer({
-        id: 'cities-layer',
-        type: 'circle',
-        source: 'cities',
-        paint: {
-          'circle-radius': 10,
-          'circle-color': '#0066cc',
-          'circle-opacity': 0.8,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
-        }
-      });
+      MaplibreTransition.init(map);
 
-      // Get controls
-      const durationSlider = document.getElementById('duration');
-      const durationValue = document.getElementById('duration-value');
-      const easingSelect = document.getElementById('easing');
-      const clickedCityEl = document.getElementById('clicked-city');
+      // Expose test hooks for Playwright
+      window.__testHooks = {
+        map: map,
+        getTransitionCount: () => map.transition.transitions.size,
+        waitForLoad: () =>
+          new Promise((resolve) => {
+            if (map.loaded()) resolve();
+            else map.once("load", resolve);
+          }),
+      };
 
-      // Update duration display
-      durationSlider.addEventListener('input', (e) => {
-        durationValue.textContent = `${e.target.value}ms`;
-      });
+      map.on("load", () => {
+        // Add the Canadian cities source
+        map.addSource("cities", {
+          type: "geojson",
+          data: canadianCapitalCities,
+          generateId: true,
+        });
 
-      // Click handler
-      map.on('click', 'cities-layer', (e) => {
-        const feature = e.features[0];
-        const cityName = feature.properties.name;
-        clickedCityEl.textContent = cityName;
-
-        const duration = parseInt(durationSlider.value);
-        const ease = easingSelect.value;
-
-        map.transition(feature, {
-          duration: duration,
-          ease: ease,
+        // Add a circle layer
+        map.addLayer({
+          id: "cities-layer",
+          type: "circle",
+          source: "cities",
           paint: {
-            'circle-radius': [10, 30, 10],
-            'circle-opacity': [0.8, 1, 0.8]
-          }
+            "circle-radius": 10,
+            "circle-color": "#0066cc",
+            "circle-opacity": 0.8,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+
+        // Get controls
+        const durationSlider = document.getElementById("duration");
+        const durationValue = document.getElementById("duration-value");
+        const easingSelect = document.getElementById("easing");
+
+        // Update duration display
+        durationSlider.addEventListener("input", (e) => {
+          durationValue.textContent = `${e.target.value}ms`;
+        });
+
+        // Click handler - animate on click
+        map.on("click", "cities-layer", (e) => {
+          const feature = e.features[0];
+          const duration = parseInt(durationSlider.value);
+          const ease = easingSelect.value;
+
+          map.transition(feature, {
+            duration: duration,
+            ease: ease,
+            paint: {
+              "circle-radius": [10, 30, 10],
+              "circle-opacity": [0.8, 1, 0.8],
+            },
+          });
+        });
+
+        // Change cursor on hover
+        map.on("mouseenter", "cities-layer", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "cities-layer", () => {
+          map.getCanvas().style.cursor = "";
         });
       });
-
-      // Change cursor on hover
-      map.on('mouseenter', 'cities-layer', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-
-      map.on('mouseleave', 'cities-layer', () => {
-        map.getCanvas().style.cursor = '';
-      });
-    });
-  </script>
-</body>
+    </script>
+  </body>
 </html>

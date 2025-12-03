@@ -28,7 +28,7 @@
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Multi-Breakpoint Transitions</h2>
-          <p>Click on a Canadian city, then choose a pattern to see complex multi-breakpoint animations.</p>
+          <p>Select a pattern, then click on a Canadian city to see complex multi-breakpoint animations.</p>
 
           <div class="control-group">
             <label>Animation Pattern</label>
@@ -54,8 +54,6 @@
               <option value="elastic">Elastic</option>
             </select>
           </div>
-
-          <button id="animate" data-testid="animate-button">Start Animation</button>
 
           <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
             <strong>Breakpoints:</strong> <span id="breakpoint-info" data-testid="breakpoint-info">5 values</span>
@@ -88,8 +86,6 @@
       })
     };
 
-    let lastClickedFeature = null;
-
     const patterns = {
       wave: {
         radius: [15, 30, 20, 35, 15],
@@ -121,7 +117,8 @@
       // Add Canadian cities
       map.addSource('cities', {
         type: 'geojson',
-        data: canadianCapitalCities
+        data: canadianCapitalCities,
+        generateId: true
       });
 
       map.addLayer({
@@ -141,7 +138,6 @@
       const durationSlider = document.getElementById('duration');
       const durationValue = document.getElementById('duration-value');
       const easingSelect = document.getElementById('easing');
-      const animateBtn = document.getElementById('animate');
       const breakpointInfo = document.getElementById('breakpoint-info');
 
       // Update breakpoint info when pattern changes
@@ -154,40 +150,20 @@
         durationValue.textContent = `${e.target.value}ms`;
       });
 
-      // Click handler for cities
+      // Click handler for cities - animate directly
       map.on('click', 'cities-layer', (e) => {
-        lastClickedFeature = e.features[0];
-      });
-
-      let isAnimating = false;
-      animateBtn.addEventListener('click', () => {
-        if (!lastClickedFeature) {
-          alert('Please click a city first!');
-          return;
-        }
-
-        if (isAnimating) return;
-
-        isAnimating = true;
-        animateBtn.textContent = 'Animating...';
-        animateBtn.disabled = true;
-
+        const feature = e.features[0];
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
         const pattern = patterns[patternSelect.value];
 
-        map.transition(lastClickedFeature, {
+        map.transition(feature, {
           duration: duration,
           ease: ease,
           paint: {
             'circle-radius': pattern.radius,
             'circle-opacity': pattern.opacity,
             'circle-color': pattern.color
-          },
-          onComplete: () => {
-            isAnimating = false;
-            animateBtn.textContent = 'Start Animation';
-            animateBtn.disabled = false;
           }
         });
       });

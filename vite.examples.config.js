@@ -22,6 +22,6 @@ export default defineConfig({
         }
     },
     server: {
-        open: '/index.html'
+        open: '/maplibre-transition/'
     }
 });

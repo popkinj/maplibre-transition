@@ -45,24 +45,6 @@ test.describe('Multiple Properties Demo', () => {
     await expect(easingSelect).toHaveValue('cubic');
   });
 
-  test('animate button is present', async ({ page }) => {
-    const animateBtn = page.getByTestId('animate-button');
-    await expect(animateBtn).toBeVisible();
-    await expect(animateBtn).toContainText('Animate Selected Properties');
-  });
-
-  test('clicking animate without city shows alert', async ({ page }) => {
-    await waitForMapLoad(page);
-
-    page.on('dialog', async dialog => {
-      expect(dialog.message()).toContain('click a city first');
-      await dialog.accept();
-    });
-
-    const animateBtn = page.getByTestId('animate-button');
-    await animateBtn.click();
-  });
-
   test('all checkboxes can be unchecked', async ({ page }) => {
     // Uncheck all properties
     await page.locator('#radius').uncheck();

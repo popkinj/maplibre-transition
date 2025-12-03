@@ -323,9 +323,61 @@ code {
   background: var(--surface);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
   font-size: 0.9em;
-  color: #e83e8c;
+  color: #5a67d8;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+/* Code block container with soft dark theme */
+.code-block {
+  background: linear-gradient(135deg, #1e1e2e 0%, #2d2d3d 100%);
+  color: #cdd6f4;
+  padding: 1.5rem;
+  border-radius: 10px;
+  overflow-x: auto;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Syntax highlighting - soft pastel colors */
+.code-keyword {
+  color: #cba6f7;
+  font-weight: 500;
+}
+
+.code-string {
+  color: #a6e3a1;
+}
+
+.code-number {
+  color: #fab387;
+}
+
+.code-function {
+  color: #89b4fa;
+}
+
+.code-property {
+  color: #89dceb;
+}
+
+.code-comment {
+  color: #6c7086;
+  font-style: italic;
+}
+
+.code-cmd {
+  color: #f9e2af;
 }
 
 /* Responsive */

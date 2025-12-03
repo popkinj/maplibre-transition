@@ -56,10 +56,6 @@
           </div>
 
           <button id="reset" data-testid="reset-button">Reset All Countries</button>
-
-          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Clicked:</strong> <span id="clicked-country" data-testid="clicked-country-display">None</span>
-          </div>
         </div>
       </div>
     </div>
@@ -134,7 +130,6 @@
       const colorInput = document.getElementById('color');
       const easingSelect = document.getElementById('easing');
       const resetBtn = document.getElementById('reset');
-      const clickedCountryEl = document.getElementById('clicked-country');
 
       durationSlider.addEventListener('input', (e) => {
         durationValue.textContent = `${e.target.value}ms`;
@@ -145,8 +140,6 @@
         if (e.features.length === 0) return;
 
         const feature = e.features[0];
-        const countryName = feature.properties.name || 'Unknown';
-        clickedCountryEl.textContent = countryName;
 
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
@@ -200,7 +193,6 @@
         });
 
         clickedCountries.clear();
-        clickedCountryEl.textContent = 'None';
       });
 
       // Change cursor on hover

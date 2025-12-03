@@ -58,11 +58,6 @@ test.describe('Basic Transition Demo', () => {
     await expect(easingSelect).toHaveValue('bounce');
   });
 
-  test('clicked city display starts with None', async ({ page }) => {
-    const clickedCity = page.getByTestId('clicked-city-display');
-    await expect(clickedCity).toContainText('None');
-  });
-
   test('map loads with cities layer', async ({ page }) => {
     await waitForMapLoad(page);
 
@@ -88,5 +83,49 @@ test.describe('Basic Transition Demo', () => {
     await page.waitForTimeout(100);
 
     // Note: We can't guarantee a city is under the click, but we verify the click works
+  });
+
+  test('clicking a city feature does not throw errors', async ({ page }) => {
+    await waitForMapLoad(page);
+
+    // Collect console errors
+    const errors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        errors.push(msg.text());
+      }
+    });
+
+    // Get a city's screen coordinates by querying the map
+    const cityCoords = await page.evaluate(() => {
+      const map = window.__testHooks?.map;
+      if (!map) return null;
+
+      // Get the first city feature
+      const features = map.querySourceFeatures('cities');
+      if (!features || features.length === 0) return null;
+
+      const feature = features[0];
+      const coords = feature.geometry.coordinates;
+
+      // Project to screen coordinates
+      const point = map.project(coords);
+      return { x: point.x, y: point.y };
+    });
+
+    if (cityCoords) {
+      // Click on the city
+      const mapContainer = page.getByTestId('map-container');
+      await mapContainer.click({ position: { x: cityCoords.x, y: cityCoords.y } });
+
+      // Wait for transition to start
+      await page.waitForTimeout(200);
+
+      // Check for feature ID errors (the bug we fixed)
+      const featureIdErrors = errors.filter(e =>
+        e.includes('feature id') || e.includes('featureId')
+      );
+      expect(featureIdErrors).toHaveLength(0);
+    }
   });
 });

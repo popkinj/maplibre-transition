@@ -1,203 +1,332 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Easing Functions - MapLibre Transition</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="styles/shared.css">
-  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-  <style>
-    .easing-grid {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      background: white;
-      padding: 1.5rem;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px var(--shadow-lg);
-      max-width: 400px;
-      z-index: 100;
-      max-height: calc(100vh - 200px);
-      overflow-y: auto;
-    }
-    .easing-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem;
-      margin-bottom: 0.5rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 2px solid transparent;
-    }
-    .easing-item:hover {
-      background: var(--surface);
-    }
-    .easing-item.active {
-      background: var(--surface);
-      border-color: var(--primary-color);
-    }
-    .easing-name {
-      font-weight: 500;
-      color: var(--text-primary);
-    }
-    .easing-demo {
-      width: 24px;
-      height: 24px;
-      background: var(--primary-color);
-      border-radius: 50%;
-      transition: transform 0.3s;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="header-content">
-      <a href="./" class="logo">
-        <div class="logo-icon">T</div>
-        <h1>MapLibre Transition</h1>
-      </a>
-      <nav>
-        <a href="./">Examples</a>
-        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
-      </nav>
-    </div>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Easing Functions - MapLibre Transition</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+    />
+    <link rel="stylesheet" href="styles/shared.css" />
+    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <style>
+      .easing-grid {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px var(--shadow-lg);
+        max-width: 400px;
+        z-index: 100;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+      }
+      .easing-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 2px solid transparent;
+        gap: 0.5rem;
+      }
+      .easing-item:nth-child(odd) {
+        background: rgba(0, 0, 0, 0.02);
+      }
+      .easing-item:hover {
+        background: rgba(0, 102, 204, 0.08);
+      }
+      .easing-item:hover .easing-graph,
+      .easing-item.active .easing-graph {
+        background: transparent;
+      }
+      .easing-item.active {
+        background: rgba(0, 102, 204, 0.12);
+        border-color: var(--primary-color);
+      }
+      .easing-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .easing-name {
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+      .easing-description {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .easing-graph {
+        width: 120px;
+        height: 40px;
+        flex-shrink: 0;
+        background: var(--surface);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .easing-graph svg {
+        display: block;
+      }
+      .easing-graph .curve {
+        fill: none;
+        stroke: var(--primary-color);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .easing-graph .axis {
+        stroke: var(--border);
+        stroke-width: 1;
+      }
+      .easing-item.active .easing-graph .curve {
+        stroke: var(--primary-color);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <a href="./" class="logo">
+          <div class="logo-icon">T</div>
+          <h1>MapLibre Transition</h1>
+        </a>
+        <nav>
+          <a href="./">Examples</a>
+          <a
+            href="https://github.com/popkinj/maplibre-transition"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
 
-  <main>
-    <div class="example-container">
-      <div class="map-container">
-        <div id="map" data-testid="map-container"></div>
-        <div class="easing-grid">
-          <h2>Easing Functions</h2>
-          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-            Click on a Canadian city, then click an easing function to see how it affects the animation.
-          </p>
-          <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Last clicked:</strong> <span id="clicked-city" data-testid="clicked-city-display">None</span>
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+          <div class="easing-grid">
+            <h2>Easing Functions</h2>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-bottom: 1.5rem;
+              "
+            >
+              Click on a Canadian city to animate it. Select an easing function
+              to see how it affects the animation.
+            </p>
+            <div id="easing-list" data-testid="easing-list"></div>
           </div>
-          <div id="easing-list" data-testid="easing-list"></div>
         </div>
       </div>
-    </div>
-  </main>
+    </main>
 
-  <script type="module">
-    import MaplibreTransition from '../dist/index.esm.js';
-    import { canadianCapitalCities } from './data/canadian-cities.js';
+    <script type="module">
+      import MaplibreTransition from "../dist/index.esm.js";
+      import { canadianCapitalCities } from "./data/canadian-cities.js";
+      import * as d3Ease from "https://cdn.jsdelivr.net/npm/d3-ease@3/+esm";
 
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://demotiles.maplibre.org/style.json',
-      center: [-95, 60],
-      zoom: 3
-    });
-
-    MaplibreTransition.init(map);
-
-    // Expose test hooks for Playwright
-    window.__testHooks = {
-      map: map,
-      getTransitionCount: () => map.transition.transitions.size,
-      waitForLoad: () => new Promise(resolve => {
-        if (map.loaded()) resolve();
-        else map.once('load', resolve);
-      })
-    };
-
-    const easingFunctions = [
-      { name: 'linear', description: 'Constant speed' },
-      { name: 'quad', description: 'Quadratic acceleration' },
-      { name: 'cubic', description: 'Cubic acceleration' },
-      { name: 'sin', description: 'Sinusoidal motion' },
-      { name: 'exp', description: 'Exponential acceleration' },
-      { name: 'circle', description: 'Circular motion' },
-      { name: 'elastic', description: 'Elastic bounce' },
-      { name: 'bounce', description: 'Bouncing motion' },
-      { name: 'poly', description: 'Polynomial acceleration' }
-    ];
-
-    let lastClickedFeature = null;
-
-    map.on('load', () => {
-      // Add Canadian cities
-      map.addSource('cities', {
-        type: 'geojson',
-        data: canadianCapitalCities
+      const map = new maplibregl.Map({
+        container: "map",
+        style: "https://demotiles.maplibre.org/style.json",
+        center: [-95, 60],
+        zoom: 3,
       });
 
-      map.addLayer({
-        id: 'cities-layer',
-        type: 'circle',
-        source: 'cities',
-        paint: {
-          'circle-radius': 15,
-          'circle-color': '#667eea',
-          'circle-opacity': 0.7,
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#ffffff'
+      MaplibreTransition.init(map);
+
+      // Expose test hooks for Playwright
+      window.__testHooks = {
+        map: map,
+        getTransitionCount: () => map.transition.transitions.size,
+        waitForLoad: () =>
+          new Promise((resolve) => {
+            if (map.loaded()) resolve();
+            else map.once("load", resolve);
+          }),
+      };
+
+      const easingFunctions = [
+        {
+          name: "linear",
+          description: "Constant speed",
+          fn: d3Ease.easeLinear,
+        },
+        {
+          name: "quad",
+          description: "Quadratic acceleration",
+          fn: d3Ease.easeQuadInOut,
+        },
+        {
+          name: "cubic",
+          description: "Cubic acceleration",
+          fn: d3Ease.easeCubicInOut,
+        },
+        {
+          name: "sin",
+          description: "Sinusoidal motion",
+          fn: d3Ease.easeSinInOut,
+        },
+        {
+          name: "exp",
+          description: "Exponential acceleration",
+          fn: d3Ease.easeExpInOut,
+        },
+        {
+          name: "circle",
+          description: "Circular motion",
+          fn: d3Ease.easeCircleInOut,
+        },
+        {
+          name: "elastic",
+          description: "Elastic bounce",
+          fn: d3Ease.easeElasticInOut,
+        },
+        {
+          name: "bounce",
+          description: "Bouncing motion",
+          fn: d3Ease.easeBounceInOut,
+        },
+        {
+          name: "poly",
+          description: "Polynomial acceleration",
+          fn: d3Ease.easePolyInOut,
+        },
+      ];
+
+      // Generate SVG path for an easing function
+      function generateEasingPath(easeFn, width, height, padding = 4) {
+        const innerWidth = width - padding * 2;
+        const innerHeight = height - padding * 2;
+        const steps = 60;
+
+        // First pass: find min/max values to handle overshooting (elastic, bounce)
+        let minVal = 0;
+        let maxVal = 1;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const easedT = easeFn(t);
+          minVal = Math.min(minVal, easedT);
+          maxVal = Math.max(maxVal, easedT);
         }
-      });
 
-      const clickedCityEl = document.getElementById('clicked-city');
+        // Add a small buffer for visual clarity
+        const range = maxVal - minVal;
+        const buffer = range * 0.05;
+        minVal -= buffer;
+        maxVal += buffer;
+        const adjustedRange = maxVal - minVal;
 
-      // Click handler for cities
-      map.on('click', 'cities-layer', (e) => {
-        lastClickedFeature = e.features[0];
-        clickedCityEl.textContent = lastClickedFeature.properties.name;
-      });
+        // Second pass: generate the path with adjusted scaling
+        let path = "";
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const easedT = easeFn(t);
+          const x = padding + t * innerWidth;
+          // Scale Y to fit the full range including overshoot
+          const normalizedY = (easedT - minVal) / adjustedRange;
+          const y = padding + (1 - normalizedY) * innerHeight;
+          path += (i === 0 ? "M" : "L") + x.toFixed(2) + "," + y.toFixed(2);
+        }
+        return path;
+      }
 
-      // Create easing function list
-      const easingList = document.getElementById('easing-list');
-      let currentEasing = 'cubic';
+      let currentEasing = "cubic";
 
-      easingFunctions.forEach(easing => {
-        const item = document.createElement('div');
-        item.className = 'easing-item' + (easing.name === currentEasing ? ' active' : '');
-        item.innerHTML = `
-          <div>
-            <div class="easing-name">${easing.name}</div>
-            <div style="font-size: 0.8rem; color: var(--text-secondary);">${easing.description}</div>
-          </div>
-          <div class="easing-demo"></div>
-        `;
+      map.on("load", () => {
+        // Add Canadian cities
+        map.addSource("cities", {
+          type: "geojson",
+          data: canadianCapitalCities,
+          generateId: true,
+        });
 
-        item.addEventListener('click', () => {
-          if (!lastClickedFeature) {
-            alert('Please click a city first!');
-            return;
-          }
+        map.addLayer({
+          id: "cities-layer",
+          type: "circle",
+          source: "cities",
+          paint: {
+            "circle-radius": 15,
+            "circle-color": "#667eea",
+            "circle-opacity": 0.7,
+            "circle-stroke-width": 3,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
 
-          // Remove active class from all items
-          document.querySelectorAll('.easing-item').forEach(el => el.classList.remove('active'));
-          item.classList.add('active');
-          currentEasing = easing.name;
+        // Click handler for cities - animate directly with current easing
+        map.on("click", "cities-layer", (e) => {
+          const feature = e.features[0];
 
-          map.transition(lastClickedFeature, {
+          map.transition(feature, {
             duration: 1500,
-            ease: easing.name,
+            ease: currentEasing,
             paint: {
-              'circle-radius': [15, 40, 15],
-              'circle-opacity': [0.7, 1, 0.7],
-              'circle-color': ['#667eea', '#f093fb', '#667eea']
-            }
+              "circle-radius": [15, 40, 15],
+              "circle-opacity": [0.7, 1, 0.7],
+              "circle-color": ["#667eea", "#f093fb", "#667eea"],
+            },
           });
         });
 
-        easingList.appendChild(item);
-      });
+        // Create easing function list
+        const easingList = document.getElementById("easing-list");
+        const graphWidth = 120;
+        const graphHeight = 40;
 
-      // Change cursor on hover
-      map.on('mouseenter', 'cities-layer', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
+        easingFunctions.forEach((easing) => {
+          const item = document.createElement("div");
+          item.className =
+            "easing-item" + (easing.name === currentEasing ? " active" : "");
 
-      map.on('mouseleave', 'cities-layer', () => {
-        map.getCanvas().style.cursor = '';
+          const pathData = generateEasingPath(
+            easing.fn,
+            graphWidth,
+            graphHeight,
+          );
+
+          item.innerHTML = `
+          <div class="easing-info">
+            <div class="easing-name">${easing.name}</div>
+            <div class="easing-description">${easing.description}</div>
+          </div>
+          <div class="easing-graph">
+            <svg width="${graphWidth}" height="${graphHeight}" viewBox="0 0 ${graphWidth} ${graphHeight}">
+              <line class="axis" x1="4" y1="${graphHeight - 4}" x2="${graphWidth - 4}" y2="${graphHeight - 4}" />
+              <line class="axis" x1="4" y1="4" x2="4" y2="${graphHeight - 4}" />
+              <path class="curve" d="${pathData}" />
+            </svg>
+          </div>
+        `;
+
+          item.addEventListener("click", () => {
+            // Remove active class from all items
+            document
+              .querySelectorAll(".easing-item")
+              .forEach((el) => el.classList.remove("active"));
+            item.classList.add("active");
+            currentEasing = easing.name;
+          });
+
+          easingList.appendChild(item);
+        });
+
+        // Change cursor on hover
+        map.on("mouseenter", "cities-layer", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "cities-layer", () => {
+          map.getCanvas().style.cursor = "";
+        });
       });
-    });
-  </script>
-</body>
+    </script>
+  </body>
 </html>

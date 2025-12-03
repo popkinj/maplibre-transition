@@ -37,27 +37,8 @@ test.describe('Chained Transitions Demo', () => {
     await expect(durationSlider).toHaveValue('1200');
   });
 
-  test('animate button is present', async ({ page }) => {
-    const animateBtn = page.getByTestId('animate-button');
-    await expect(animateBtn).toBeVisible();
-    await expect(animateBtn).toContainText('Start Chain');
-  });
-
-  test('stop button is disabled by default', async ({ page }) => {
+  test('stop button is hidden by default', async ({ page }) => {
     const stopBtn = page.getByTestId('stop-button');
-    await expect(stopBtn).toBeVisible();
-    await expect(stopBtn).toBeDisabled();
-  });
-
-  test('clicking animate without city shows alert', async ({ page }) => {
-    await waitForMapLoad(page);
-
-    page.on('dialog', async dialog => {
-      expect(dialog.message()).toContain('click a city first');
-      await dialog.accept();
-    });
-
-    const animateBtn = page.getByTestId('animate-button');
-    await animateBtn.click();
+    await expect(stopBtn).toBeHidden();
   });
 });

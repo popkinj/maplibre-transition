@@ -28,7 +28,7 @@
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Color Cycling</h2>
-          <p>Watch Canadian cities cycle through color palettes with staggered animations.</p>
+          <p>Click on a Canadian city to animate it through the selected color palette.</p>
 
           <div class="control-group">
             <label>Duration: <span class="value-display" id="duration-value">3000ms</span></label>
@@ -56,8 +56,6 @@
               <option value="ocean">Ocean</option>
             </select>
           </div>
-
-          <button id="animate" data-testid="animate-button">Start Color Cycle</button>
         </div>
       </div>
     </div>
@@ -98,7 +96,8 @@
       // Add Canadian cities
       map.addSource('cities', {
         type: 'geojson',
-        data: canadianCapitalCities
+        data: canadianCapitalCities,
+        generateId: true
       });
 
       map.addLayer({
@@ -119,42 +118,24 @@
       const durationValue = document.getElementById('duration-value');
       const easingSelect = document.getElementById('easing');
       const paletteSelect = document.getElementById('palette');
-      const animateBtn = document.getElementById('animate');
 
       durationSlider.addEventListener('input', (e) => {
         durationValue.textContent = `${e.target.value}ms`;
       });
 
-      let isAnimating = false;
-      animateBtn.addEventListener('click', () => {
-        if (isAnimating) return;
-
-        isAnimating = true;
-        animateBtn.textContent = 'Cycling...';
-        animateBtn.disabled = true;
-
-        const features = map.queryRenderedFeatures({ layers: ['cities-layer'] });
+      // Click handler - animate the clicked city through the color palette
+      map.on('click', 'cities-layer', (e) => {
+        const feature = e.features[0];
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
         const colors = palettes[paletteSelect.value];
 
-        // Animate each city with a slight delay
-        features.forEach((feature, index) => {
-          map.transition(feature, {
-            duration: duration,
-            ease: ease,
-            delay: index * 50,
-            paint: {
-              'circle-color': colors
-            },
-            onComplete: () => {
-              if (index === features.length - 1) {
-                isAnimating = false;
-                animateBtn.textContent = 'Start Color Cycle';
-                animateBtn.disabled = false;
-              }
-            }
-          });
+        map.transition(feature, {
+          duration: duration,
+          ease: ease,
+          paint: {
+            'circle-color': colors
+          }
         });
       });
 

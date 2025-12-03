@@ -53,7 +53,7 @@
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Multiple Properties</h2>
-          <p>Click on a Canadian city, then choose properties to animate together.</p>
+          <p>Select properties below, then click on a Canadian city to animate them together.</p>
 
           <div class="property-toggles">
             <div class="property-toggle">
@@ -89,8 +89,6 @@
               <option value="bounce">Bounce</option>
             </select>
           </div>
-
-          <button id="animate" data-testid="animate-button">Animate Selected Properties</button>
         </div>
       </div>
     </div>
@@ -119,13 +117,12 @@
       })
     };
 
-    let lastClickedFeature = null;
-
     map.on('load', () => {
       // Add Canadian cities
       map.addSource('cities', {
         type: 'geojson',
-        data: canadianCapitalCities
+        data: canadianCapitalCities,
+        generateId: true
       });
 
       map.addLayer({
@@ -149,25 +146,14 @@
       const durationSlider = document.getElementById('duration');
       const durationValue = document.getElementById('duration-value');
       const easingSelect = document.getElementById('easing');
-      const animateBtn = document.getElementById('animate');
 
       durationSlider.addEventListener('input', (e) => {
         durationValue.textContent = `${e.target.value}ms`;
       });
 
-      // Click handler for cities
+      // Click handler for cities - animate directly
       map.on('click', 'cities-layer', (e) => {
-        lastClickedFeature = e.features[0];
-      });
-
-      let isAnimating = false;
-      animateBtn.addEventListener('click', () => {
-        if (!lastClickedFeature) {
-          alert('Please click a city first!');
-          return;
-        }
-
-        if (isAnimating) return;
+        const feature = e.features[0];
 
         // Build paint object based on selected properties
         const paint = {};
@@ -187,26 +173,16 @@
 
         // Check if at least one property is selected
         if (Object.keys(paint).length === 0) {
-          alert('Please select at least one property to animate');
           return;
         }
-
-        isAnimating = true;
-        animateBtn.textContent = 'Animating...';
-        animateBtn.disabled = true;
 
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
 
-        map.transition(lastClickedFeature, {
+        map.transition(feature, {
           duration: duration,
           ease: ease,
-          paint: paint,
-          onComplete: () => {
-            isAnimating = false;
-            animateBtn.textContent = 'Animate Selected Properties';
-            animateBtn.disabled = false;
-          }
+          paint: paint
         });
       });
 

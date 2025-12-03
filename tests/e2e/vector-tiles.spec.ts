@@ -41,11 +41,6 @@ test.describe('Vector Tiles Demo', () => {
     await expect(resetBtn).toContainText('Reset All Countries');
   });
 
-  test('clicked country display starts with None', async ({ page }) => {
-    const clickedCountry = page.getByTestId('clicked-country-display');
-    await expect(clickedCountry).toContainText('None');
-  });
-
   test('map loads successfully', async ({ page }) => {
     await waitForMapLoad(page);
 

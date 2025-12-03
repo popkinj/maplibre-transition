@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapLibre Transition - Dev Examples</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      margin: 10px 0;
+    }
+    a {
+      display: block;
+      padding: 15px 20px;
+      background: white;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #667eea;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    a:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .note {
+      margin-top: 30px;
+      padding: 15px;
+      background: #e8f4fd;
+      border-radius: 8px;
+      font-size: 0.9em;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dev Examples</h1>
+  <ul>
+    <li><a href="simple.html">Simple Transition</a></li>
+    <li><a href="hover.html">Hover Effects</a></li>
+    <li><a href="point-animation.html">Point Animation</a></li>
+    <li><a href="point-animation-chained.html">Chained Animations</a></li>
+    <li><a href="colour-animation.html">Color Animation</a></li>
+    <li><a href="colour-cycle.html">Color Cycle</a></li>
+  </ul>
+  <div class="note">
+    <strong>Note:</strong> These are development examples. For the full interactive demos, run <code>npm run serve:examples</code> instead.
+  </div>
+</body>
+</html>

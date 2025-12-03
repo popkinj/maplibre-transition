@@ -39,22 +39,6 @@ test.describe('Color Cycle Demo', () => {
     await expect(paletteSelect).toHaveValue('warm');
   });
 
-  test('animate button is present', async ({ page }) => {
-    const animateBtn = page.getByTestId('animate-button');
-    await expect(animateBtn).toBeVisible();
-    await expect(animateBtn).toContainText('Start Color Cycle');
-  });
-
-  test('clicking animate button triggers animation', async ({ page }) => {
-    await waitForMapLoad(page);
-
-    const animateBtn = page.getByTestId('animate-button');
-    await expect(animateBtn).toContainText('Start Color Cycle');
-
-    // Verify button is clickable
-    await expect(animateBtn).toBeEnabled();
-  });
-
   test('map loads with cities layer', async ({ page }) => {
     await waitForMapLoad(page);
 

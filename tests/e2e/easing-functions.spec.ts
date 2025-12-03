@@ -48,23 +48,14 @@ test.describe('Easing Functions Demo', () => {
     }
   });
 
-  test('clicked city display starts with None', async ({ page }) => {
-    const clickedCity = page.getByTestId('clicked-city-display');
-    await expect(clickedCity).toContainText('None');
-  });
-
-  test('clicking easing without selecting city shows alert', async ({ page }) => {
+  test('easing items can be selected', async ({ page }) => {
     await waitForMapLoad(page);
 
-    // Set up dialog handler
-    page.on('dialog', async dialog => {
-      expect(dialog.message()).toContain('click a city first');
-      await dialog.accept();
-    });
-
-    // Click an easing item
     const easingItem = page.locator('.easing-item').first();
     await easingItem.click();
+
+    // After clicking, the item should have the active class
+    await expect(easingItem).toHaveClass(/active/);
   });
 
   test('easing items are clickable', async ({ page }) => {
