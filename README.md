@@ -1,6 +1,6 @@
 # Maplibre Transition Plugin
 
-A utility plugin for Maplibre GL JS that adds transition-related functionality.
+A utility plugin for Maplibre GL JS that adds feature level transition-related functionality.
 
 ## Compatibility
 
@@ -15,8 +15,8 @@ npm install maplibre-transition
 ## Usage
 
 ```javascript
-import maplibregl from 'maplibre-gl';
-import MaplibreTransition from 'maplibre-transition';
+import maplibregl from "maplibre-gl";
+import MaplibreTransition from "maplibre-transition";
 
 const map = new maplibregl.Map({
   container: "map",
@@ -62,7 +62,7 @@ map.transition(feature, {
     "circle-radius": [8, 12],
     "circle-stroke-width": [2, 4],
     "circle-opacity": [1, 0.2],
-  }
+  },
 });
 ```
 
@@ -83,6 +83,7 @@ The plugin supports the following easing functions from d3-ease:
 - `"sin"` - Sinusoidal easing (smooth sine wave)
 
 Example with different easing:
+
 ```javascript
 map.transition(feature, {
   duration: 1000,
@@ -102,19 +103,21 @@ map.transition(feature, {
   duration: 1000,
   ease: "linear",
   paint: {
-    "fill-color": ["#ff0000", "#00ff00"],  // RGB color transition
-    "fill-outline-color": ["hsl(0,100%,50%)", "hsl(120,100%,50%)"],  // HSL color transition
-    "fill-opacity": [0.1, 1] 
-  }
+    "fill-color": ["#ff0000", "#00ff00"], // RGB color transition
+    "fill-outline-color": ["hsl(0,100%,50%)", "hsl(120,100%,50%)"], // HSL color transition
+    "fill-opacity": [0.1, 1],
+  },
 });
 ```
 
 The plugin supports the following color formats:
+
 - RGB colors (e.g., "#ff0000", "rgb(255,0,0)")
 - HSL colors (e.g., "hsl(0,100%,50%)")
 - LAB colors (e.g., "lab(50,100,0)")
 
 Each color format uses its appropriate interpolation method:
+
 - RGB interpolation for RGB colors
 - HSL interpolation for HSL colors (better for hue transitions)
 - LAB interpolation for LAB colors (perceptually uniform)
@@ -129,7 +132,7 @@ map.transition(feature, {
   ease: "elastic",
   paint: {
     "circle-radius": [8, 12],
-    "circle-color": ["#ff0000", "#00ff00"]  // Color transition
+    "circle-color": ["#ff0000", "#00ff00"], // Color transition
   },
   onComplete: () => {
     // This transition will start after the radius transition completes
@@ -139,10 +142,10 @@ map.transition(feature, {
       paint: {
         "circle-stroke-width": [2, 4],
         "circle-opacity": [1, 0.2],
-        "circle-color": ["#00ff00", "#0000ff"]  // Another color transition
+        "circle-color": ["#00ff00", "#0000ff"], // Another color transition
       },
     });
-  }
+  },
 });
 ```
 
@@ -159,18 +162,18 @@ You can specify multiple colors to create smooth color cycles:
 ```javascript
 map.transition(feature, {
   duration: 3000,
-  ease: 'elastic',
+  ease: "elastic",
   paint: {
     "fill-color": [
-      "#088",    // Start with green
-      "#f00",    // Then red
-      "#00f",    // Then blue
-      "#ff0",    // Then yellow
-      "#f0f",    // Then magenta
-      "#0ff",    // Then cyan
-      "#088"     // Back to green
-    ]
-  }
+      "#088", // Start with green
+      "#f00", // Then red
+      "#00f", // Then blue
+      "#ff0", // Then yellow
+      "#f0f", // Then magenta
+      "#0ff", // Then cyan
+      "#088", // Back to green
+    ],
+  },
 });
 ```
 
@@ -183,14 +186,15 @@ Multiple breakpoints also work for numeric properties, creating piecewise linear
 ```javascript
 map.transition(feature, {
   duration: 2000,
-  ease: 'cubic',
+  ease: "cubic",
   paint: {
-    "circle-radius": [0, 10, 5, 15, 8]  // Complex size animation
-  }
+    "circle-radius": [0, 10, 5, 15, 8], // Complex size animation
+  },
 });
 ```
 
 This creates a smooth transition that:
+
 1. Grows from 0 to 10
 2. Shrinks to 5
 3. Grows to 15
@@ -213,15 +217,16 @@ This creates a smooth transition that:
 4. **Performance**: While multiple breakpoints are supported, consider the number of breakpoints you use. More breakpoints mean more interpolation calculations.
 
 Example combining multiple properties with breakpoints:
+
 ```javascript
 map.transition(feature, {
   duration: 3000,
-  ease: 'elastic',
+  ease: "elastic",
   paint: {
     "fill-color": ["#088", "#f00", "#00f", "#088"],
     "circle-radius": [5, 15, 10, 20],
-    "fill-opacity": [1, 0.5, 0.8, 1]
-  }
+    "fill-opacity": [1, 0.5, 0.8, 1],
+  },
 });
 ```
 
@@ -230,6 +235,7 @@ map.transition(feature, {
 Interactive demos are available at: **[https://popkinj.github.io/maplibre-transition/](https://popkinj.github.io/maplibre-transition/)**
 
 The demo site includes examples for:
+
 - Basic Transition - Simple radius transitions on click
 - Color Animation - Color property transitions
 - Color Cycling - Multi-breakpoint color cycles
@@ -241,6 +247,7 @@ The demo site includes examples for:
 - Vector Tiles - Transitions with vector tile sources
 
 ## Examples
+
 I've put together some simple working examples in Observable, [here](https://observablehq.com/d/b9a97acdf712a77b).
 
 ## Development
@@ -297,4 +304,4 @@ npm run test:all
 npm run deploy:examples
 ```
 
-This deploys the `examples/` directory to the `gh-pages` branch, making demos available at `https://popkinj.github.io/maplibre-transition/`. 
+This deploys the `examples/` directory to the `gh-pages` branch, making demos available at `https://popkinj.github.io/maplibre-transition/`.
