@@ -17,16 +17,18 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    // WebGL support for MapLibre
-    launchOptions: {
-      args: ['--use-gl=egl'],
-    },
   },
 
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // WebGL support for MapLibre (Chromium-only flag)
+        launchOptions: {
+          args: ['--use-gl=egl'],
+        },
+      },
     },
     {
       name: 'firefox',
