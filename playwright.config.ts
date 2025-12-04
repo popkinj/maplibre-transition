@@ -32,7 +32,16 @@ export default defineConfig({
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: {
+        ...devices['Desktop Firefox'],
+        // Enable WebGL for MapLibre in headless Firefox
+        launchOptions: {
+          firefoxUserPrefs: {
+            'webgl.force-enabled': true,
+            'webgl.disabled': false,
+          },
+        },
+      },
     },
     {
       name: 'webkit',

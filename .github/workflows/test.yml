@@ -54,7 +54,8 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        # Only run Chromium and Firefox - WebKit has poor WebGL support in headless Linux
+        run: npx playwright test --project=chromium --project=firefox
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
