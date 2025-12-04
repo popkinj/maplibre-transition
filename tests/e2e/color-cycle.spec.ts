@@ -25,9 +25,9 @@ test.describe('Color Cycle Demo', () => {
     await expect(durationSlider).toHaveValue('5000');
   });
 
-  test('easing dropdown has elastic selected by default', async ({ page }) => {
+  test('easing dropdown has linear selected by default', async ({ page }) => {
     const easingSelect = page.getByTestId('easing-select');
-    await expect(easingSelect).toHaveValue('elastic');
+    await expect(easingSelect).toHaveValue('linear');
   });
 
   test('palette dropdown is functional', async ({ page }) => {

@@ -14,9 +14,9 @@ test.describe('Landing Page', () => {
     await expect(heroSection).toContainText('Smooth Transitions');
   });
 
-  test('displays all 9 feature cards', async ({ page }) => {
+  test('displays all 8 feature cards', async ({ page }) => {
     const featureCards = page.locator('.feature-card');
-    await expect(featureCards).toHaveCount(9);
+    await expect(featureCards).toHaveCount(8);
   });
 
   test('feature cards have correct titles', async ({ page }) => {
@@ -28,8 +28,7 @@ test.describe('Landing Page', () => {
       'Multiple Properties',
       'Chained Transitions',
       'Hover Effects',
-      'Multi-Breakpoint',
-      'Vector Tiles'
+      'Multi-Breakpoint'
     ];
 
     for (const title of expectedTitles) {
