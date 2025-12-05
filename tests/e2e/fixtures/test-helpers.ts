@@ -12,8 +12,16 @@ declare global {
 
 /**
  * Wait for the MapLibre map to fully load
+ * Uses a longer default timeout for CI environments where network/WebGL may be slower
  */
-export async function waitForMapLoad(page: Page, timeout = 30000): Promise<void> {
+export async function waitForMapLoad(page: Page, timeout = 60000): Promise<void> {
+  // First wait for __testHooks to be available
+  await page.waitForFunction(
+    () => window.__testHooks?.map !== undefined,
+    { timeout }
+  );
+
+  // Then wait for the map to be fully loaded
   await page.waitForFunction(
     () => window.__testHooks?.map?.loaded() === true,
     { timeout }

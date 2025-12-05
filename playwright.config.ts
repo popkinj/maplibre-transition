@@ -12,11 +12,19 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
 
+  // Longer timeout for CI where map loading may be slower
+  timeout: process.env.CI ? 60000 : 30000,
+  expect: {
+    timeout: process.env.CI ? 30000 : 5000,
+  },
+
   use: {
     baseURL: 'http://localhost:5173/maplibre-transition/',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // Longer navigation timeout for CI
+    navigationTimeout: process.env.CI ? 60000 : 30000,
   },
 
   projects: [
