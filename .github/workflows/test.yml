@@ -54,8 +54,9 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run E2E tests
-        # Only run Chromium and Firefox - WebKit has poor WebGL support in headless Linux
-        run: npx playwright test --project=chromium --project=firefox
+        # Only run Chromium - Firefox/WebKit have unreliable WebGL support in headless Linux
+        # MapLibre requires WebGL, so tests fail when it can't initialize
+        run: npx playwright test --project=chromium
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
