@@ -4,52 +4,56 @@
 
 The hover example doesn't demonstrate that `null` can be used as the first value to mean "from current state". This is a powerful feature that avoids manual state tracking.
 
+Something tells me that using null is a fake pattern. There's a good chance the plugin ignores the first value if there is a current transition in place.
+
 ### Current Pattern (verbose, error-prone)
+
 ```javascript
 // Manually tracking hover state
 let hoveredFeatureState = null;
 
-map.on('mousemove', 'layer', (e) => {
+map.on("mousemove", "layer", (e) => {
   // Store end state manually
-  hoveredFeatureState = { 'circle-radius': 20, 'circle-opacity': 1 };
+  hoveredFeatureState = { "circle-radius": 20, "circle-opacity": 1 };
 
   map.transition(feature, {
     paint: {
-      'circle-radius': [12, 20],
-      'circle-opacity': [0.7, 1]
-    }
+      "circle-radius": [12, 20],
+      "circle-opacity": [0.7, 1],
+    },
   });
 });
 
-map.on('mouseleave', 'layer', () => {
+map.on("mouseleave", "layer", () => {
   // Must remember what we transitioned TO in order to reverse
   map.transition(feature, {
     paint: {
-      'circle-radius': [hoveredFeatureState['circle-radius'], 12],
-      'circle-opacity': [hoveredFeatureState['circle-opacity'], 0.7]
-    }
+      "circle-radius": [hoveredFeatureState["circle-radius"], 12],
+      "circle-opacity": [hoveredFeatureState["circle-opacity"], 0.7],
+    },
   });
 });
 ```
 
 ### Recommended Pattern (simpler)
+
 ```javascript
 // No need to track hover state - plugin queries it internally
-map.on('mousemove', 'layer', (e) => {
+map.on("mousemove", "layer", (e) => {
   map.transition(feature, {
     paint: {
-      'circle-radius': [null, 20],    // null = "from current state"
-      'circle-opacity': [null, 1]
-    }
+      "circle-radius": [null, 20], // null = "from current state"
+      "circle-opacity": [null, 1],
+    },
   });
 });
 
-map.on('mouseleave', 'layer', () => {
+map.on("mouseleave", "layer", () => {
   map.transition(feature, {
     paint: {
-      'circle-radius': [null, 12],    // automatically knows current value
-      'circle-opacity': [null, 0.7]
-    }
+      "circle-radius": [null, 12], // automatically knows current value
+      "circle-opacity": [null, 0.7],
+    },
   });
 });
 ```
@@ -63,6 +67,7 @@ The plugin uses `getFeatureState()` and `getPaintProperty()` internally (lines 2
 When `transition()` is called on a feature that already has a transition running, the plugin automatically reverses it using `reverseScale()` (lines 428-452). This isn't obvious from the API but is very useful.
 
 ### Example: Rapid Hover In/Out
+
 ```javascript
 // User hovers in, then quickly hovers out before animation completes
 // The plugin automatically:
@@ -73,8 +78,8 @@ When `transition()` is called on a feature that already has a transition running
 // No special handling needed - just call transition()
 map.transition(feature, {
   duration: 150,
-  ease: 'linear',
-  paint: { 'circle-radius': [null, 12] }
+  ease: "linear",
+  paint: { "circle-radius": [null, 12] },
 });
 // Plugin handles the smooth reversal automatically
 ```
@@ -97,11 +102,12 @@ The current hover example stores `hoveredFeatureId` and uses `queryRenderedFeatu
 **Recommended**: Store the full feature object from the mousemove event and reuse it directly.
 
 ### Suggested Addition to hover-effects.html
+
 ```javascript
 // Store the full feature object, not just the ID
 let hoveredFeature = null;
 
-map.on('mousemove', 'cities-layer', (e) => {
+map.on("mousemove", "cities-layer", (e) => {
   if (e.features.length === 0) return;
 
   const feature = e.features[0];
@@ -114,11 +120,11 @@ map.on('mousemove', 'cities-layer', (e) => {
   if (hoveredFeature !== null) {
     map.transition(hoveredFeature, {
       duration: 150,
-      ease: 'linear',
+      ease: "linear",
       paint: {
-        'circle-radius': [null, defaults['circle-radius']],
-        'circle-opacity': [null, defaults['circle-opacity']]
-      }
+        "circle-radius": [null, defaults["circle-radius"]],
+        "circle-opacity": [null, defaults["circle-opacity"]],
+      },
     });
   }
 
@@ -127,25 +133,25 @@ map.on('mousemove', 'cities-layer', (e) => {
 
   map.transition(feature, {
     duration: 400,
-    ease: 'bounce',
+    ease: "bounce",
     paint: {
-      'circle-radius': [null, 20],
-      'circle-opacity': [null, 1]
-    }
+      "circle-radius": [null, 20],
+      "circle-opacity": [null, 1],
+    },
   });
 });
 
-map.on('mouseleave', 'cities-layer', () => {
+map.on("mouseleave", "cities-layer", () => {
   if (hoveredFeature === null) return;
 
   // Use stored feature object directly - always reliable
   map.transition(hoveredFeature, {
     duration: 150,
-    ease: 'linear',
+    ease: "linear",
     paint: {
-      'circle-radius': [null, defaults['circle-radius']],
-      'circle-opacity': [null, defaults['circle-opacity']]
-    }
+      "circle-radius": [null, defaults["circle-radius"]],
+      "circle-opacity": [null, defaults["circle-opacity"]],
+    },
   });
 
   hoveredFeature = null;
@@ -157,6 +163,7 @@ This pattern is essential for dense point layers where users frequently move bet
 ### Why This Works Better
 
 The feature object from `e.features[0]` contains all the properties the plugin needs:
+
 - `feature.id` - for identifying the feature
 - `feature.source` - for `setFeatureState()` calls
 - `feature.layer.id` - for `getPaintProperty()` calls
@@ -182,11 +189,13 @@ When using `[null, targetValue]` to transition FROM current state, the `null` lo
 ### Suspected Cause
 
 In the plugin code (lines 374-389), when `null` is the first value:
+
 ```javascript
 if (firstValue === null || firstValue === undefined) {
-  effectiveValues = startValue !== undefined
-    ? [startValue, ...values.slice(1)]
-    : values.slice(1);  // <-- If startValue undefined, only target value remains
+  effectiveValues =
+    startValue !== undefined
+      ? [startValue, ...values.slice(1)]
+      : values.slice(1); // <-- If startValue undefined, only target value remains
 }
 ```
 
@@ -219,6 +228,7 @@ The plugin's auto-reversal will still handle mid-animation interruption correctl
 Consider adding to README or API docs:
 
 ### TransitionOptions.paint
+
 ```typescript
 paint: {
   // Standard: explicit start and end values
@@ -233,6 +243,7 @@ paint: {
 ```
 
 ### Automatic Behaviors
+
 - **Current state detection**: When first value is `null`, uses `getFeatureState()` or `getPaintProperty()`
 - **Mid-animation reversal**: Calling `transition()` on a feature with active transition reverses it smoothly
 - **Paint property modification**: Automatically wraps paint properties in `coalesce` expressions for feature-state support
