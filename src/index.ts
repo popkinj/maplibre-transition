@@ -377,9 +377,18 @@ export function init(map: Map): void {
 
       if (firstValue === null || firstValue === undefined) {
         // Replace null/undefined with current state, keep the rest
-        effectiveValues = startValue !== undefined
-          ? [startValue, ...values.slice(1)]
-          : values.slice(1);
+        if (startValue !== undefined) {
+          effectiveValues = [startValue, ...values.slice(1)];
+        } else if (defaultPaintValues[style] !== undefined) {
+          // Fall back to paint property default if feature state not found
+          effectiveValues = [defaultPaintValues[style], ...values.slice(1)];
+        } else {
+          // Last resort: use target value as start to avoid single-value array (creates no-op)
+          const targetValue = values[1];
+          effectiveValues = targetValue !== undefined
+            ? [targetValue, ...values.slice(1)]
+            : values.slice(1);
+        }
       } else {
         // Only prepend the starting value if it's different from the first value in the array
         // This avoids duplicating values when the user explicitly provides the start value

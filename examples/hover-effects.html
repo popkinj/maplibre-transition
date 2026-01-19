@@ -92,8 +92,8 @@
     };
 
     let hoverCount = 0;
-    let hoveredFeatureId = null;
-    let hoveredFeatureState = null; // Track the hover end state for smooth transition back
+    // Store the full feature object, not just the ID - avoids unreliable queryRenderedFeatures()
+    let hoveredFeature = null;
 
     // Original/default values
     const defaults = {
@@ -140,59 +140,66 @@
         if (e.features.length === 0) return;
 
         const feature = e.features[0];
-        if (hoveredFeatureId === feature.id) return;
 
-        hoveredFeatureId = feature.id;
-        hoverCount++;
-        hoverCountEl.textContent = hoverCount;
+        // Early return if same feature - no action needed
+        if (hoveredFeature?.id === feature.id) return;
 
         const duration = parseInt(durationSlider.value);
         const ease = easingSelect.value;
         const effect = effectSelect.value;
 
+        // If moving from feature A to feature B, transition A back to defaults first
+        // Use stored feature object directly - no queryRenderedFeatures needed
+        if (hoveredFeature !== null) {
+          map.transition(hoveredFeature, {
+            duration: Math.min(duration, 150), // Quick return animation
+            ease: 'linear',
+            paint: {
+              'circle-radius': [null, defaults['circle-radius']],
+              'circle-color': [null, defaults['circle-color']],
+              'circle-opacity': [null, defaults['circle-opacity']],
+              'circle-stroke-width': [null, defaults['circle-stroke-width']],
+              'circle-stroke-color': [null, defaults['circle-stroke-color']]
+            }
+          });
+        }
+
+        // Store the new feature object (not just the ID)
+        hoveredFeature = feature;
+        hoverCount++;
+        hoverCountEl.textContent = hoverCount;
+
+        // Build paint object based on selected effect
+        // Using [null, targetValue] pattern - plugin queries current state internally
         let paint = {};
-        let endState = { ...defaults }; // Track what we're transitioning TO
 
         switch (effect) {
           case 'grow':
             paint = {
-              'circle-radius': [defaults['circle-radius'], 20],
-              'circle-opacity': [defaults['circle-opacity'], 1]
+              'circle-radius': [null, 20],
+              'circle-opacity': [null, 1]
             };
-            endState['circle-radius'] = 20;
-            endState['circle-opacity'] = 1;
             break;
           case 'pulse':
             paint = {
               'circle-radius': [defaults['circle-radius'], 18, 15],
               'circle-opacity': [defaults['circle-opacity'], 1, 0.85]
             };
-            // For multi-breakpoint, end state is the last value
-            endState['circle-radius'] = 15;
-            endState['circle-opacity'] = 0.85;
             break;
           case 'color-shift':
             paint = {
-              'circle-color': [defaults['circle-color'], '#f093fb'],
-              'circle-radius': [defaults['circle-radius'], 16]
+              'circle-color': [null, '#f093fb'],
+              'circle-radius': [null, 16]
             };
-            endState['circle-color'] = '#f093fb';
-            endState['circle-radius'] = 16;
             break;
           case 'glow':
             paint = {
-              'circle-opacity': [defaults['circle-opacity'], 1],
-              'circle-stroke-width': [defaults['circle-stroke-width'], 6],
-              'circle-stroke-color': [defaults['circle-stroke-color'], '#667eea']
+              'circle-opacity': [null, 1],
+              'circle-stroke-width': [null, 6],
+              'circle-stroke-color': [null, '#667eea']
             };
-            endState['circle-opacity'] = 1;
-            endState['circle-stroke-width'] = 6;
-            endState['circle-stroke-color'] = '#667eea';
             break;
         }
-
-        // Store the end state so we can transition back from it
-        hoveredFeatureState = endState;
 
         map.transition(feature, {
           duration: duration,
@@ -202,31 +209,26 @@
       });
 
       map.on('mouseleave', 'cities-layer', () => {
-        if (hoveredFeatureId === null) return;
+        if (hoveredFeature === null) return;
 
-        const features = map.queryRenderedFeatures({ layers: ['cities-layer'] });
-        const feature = features.find(f => f.id === hoveredFeatureId);
+        const duration = parseInt(durationSlider.value);
+        const ease = easingSelect.value;
 
-        if (feature && hoveredFeatureState) {
-          const duration = parseInt(durationSlider.value);
-          const ease = easingSelect.value;
+        // Use stored feature object directly - always reliable, no queryRenderedFeatures needed
+        // Using [null, targetValue] pattern - plugin queries current state and handles auto-reversal
+        map.transition(hoveredFeature, {
+          duration: duration,
+          ease: ease,
+          paint: {
+            'circle-radius': [null, defaults['circle-radius']],
+            'circle-color': [null, defaults['circle-color']],
+            'circle-opacity': [null, defaults['circle-opacity']],
+            'circle-stroke-width': [null, defaults['circle-stroke-width']],
+            'circle-stroke-color': [null, defaults['circle-stroke-color']]
+          }
+        });
 
-          // Return to original state FROM the hover end state
-          map.transition(feature, {
-            duration: duration,
-            ease: ease,
-            paint: {
-              'circle-radius': [hoveredFeatureState['circle-radius'], defaults['circle-radius']],
-              'circle-color': [hoveredFeatureState['circle-color'], defaults['circle-color']],
-              'circle-opacity': [hoveredFeatureState['circle-opacity'], defaults['circle-opacity']],
-              'circle-stroke-width': [hoveredFeatureState['circle-stroke-width'], defaults['circle-stroke-width']],
-              'circle-stroke-color': [hoveredFeatureState['circle-stroke-color'], defaults['circle-stroke-color']]
-            }
-          });
-        }
-
-        hoveredFeatureId = null;
-        hoveredFeatureState = null;
+        hoveredFeature = null;
       });
     });
   </script>

@@ -68,6 +68,110 @@ map.transition(feature, {
 
 All specified properties will transition together using the same duration and easing function. This is useful for creating coordinated visual effects.
 
+## Paint Property Value Formats
+
+The `paint` object accepts arrays in several formats:
+
+```javascript
+paint: {
+  // Standard: explicit start and end values
+  'circle-radius': [12, 20],
+
+  // Null start: use current state as starting value
+  'circle-radius': [null, 20],
+
+  // Multi-breakpoint: animate through multiple values
+  'circle-radius': [12, 20, 16, 25],
+}
+```
+
+### Using `null` as Start Value
+
+Use `null` as the first value to animate from the current state. This avoids manual state tracking:
+
+```javascript
+// Instead of manually tracking state:
+let currentRadius = 12;
+map.transition(feature, {
+  paint: { 'circle-radius': [currentRadius, 20] }
+});
+currentRadius = 20;
+
+// Just use null - the plugin queries the current state internally:
+map.transition(feature, {
+  paint: { 'circle-radius': [null, 20] }
+});
+```
+
+The plugin uses `getFeatureState()` and `getPaintProperty()` to determine the current value when `null` is provided.
+
+## Automatic Behaviors
+
+### Mid-Animation Reversal
+
+When `transition()` is called on a feature that already has a transition running, the plugin automatically reverses it. This enables smooth interactions like hover effects:
+
+```javascript
+// User hovers in, then quickly hovers out before animation completes
+// No special handling needed - just call transition()
+map.on('mouseleave', 'layer', () => {
+  map.transition(feature, {
+    duration: 150,
+    ease: 'linear',
+    paint: { 'circle-radius': [null, 12] }
+  });
+  // Plugin handles smooth reversal from current mid-animation position
+});
+```
+
+### Best Practices for Hover Effects
+
+When implementing hover effects on dense point layers:
+
+1. **Store the full feature object**, not just the ID:
+
+```javascript
+let hoveredFeature = null;
+
+map.on('mousemove', 'layer', (e) => {
+  if (e.features.length === 0) return;
+  const feature = e.features[0];
+
+  // Early return if same feature
+  if (hoveredFeature?.id === feature.id) return;
+
+  // Clean up previous feature when moving A → B
+  if (hoveredFeature !== null) {
+    map.transition(hoveredFeature, {
+      duration: 150,
+      paint: { 'circle-radius': [null, 12] }
+    });
+  }
+
+  hoveredFeature = feature;
+  map.transition(feature, {
+    duration: 400,
+    paint: { 'circle-radius': [null, 20] }
+  });
+});
+
+map.on('mouseleave', 'layer', () => {
+  if (hoveredFeature === null) return;
+
+  // Use stored feature directly - no queryRenderedFeatures needed
+  map.transition(hoveredFeature, {
+    duration: 150,
+    paint: { 'circle-radius': [null, 12] }
+  });
+
+  hoveredFeature = null;
+});
+```
+
+2. **Avoid `queryRenderedFeatures()`** on mouseleave - it may not find the feature if it's outside the viewport or return unexpected results with many features.
+
+3. **Use the `[null, target]` pattern** to let the plugin handle current state detection and mid-animation reversal.
+
 ## Easing Types
 
 The plugin supports the following easing functions from d3-ease:
