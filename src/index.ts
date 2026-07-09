@@ -135,73 +135,82 @@ function getColorInterpolator(values: (string | number)[]): ((t: number) => stri
 }
 
 /**
- * Animates a feature's style transition over time using requestAnimationFrame.
- * This function handles the actual animation loop and updates feature states.
- * 
+ * Keys on a transition object that are metadata rather than per-property scales.
+ */
+const TRANSITION_META_KEYS = new Set(["options", "__raf"]);
+
+/**
+ * Drives a single feature's transition with one requestAnimationFrame loop.
+ *
+ * All properties on the feature are sampled and written in a single
+ * `setFeatureState` call per frame, using the timestamp the browser passes to
+ * the rAF callback (synchronized to the frame boundary). The loop bails
+ * immediately if its transition has been superseded, so an interrupting call
+ * that replaces the transition cannot leave a stale loop running.
+ *
  * @param {Map} map - The MapLibre map instance
  * @param {any} feature - The feature to animate
- * @param {string} keyName - Unique identifier for the transition
+ * @param {any} transition - The transition object holding this feature's scales
+ * @param {Set<any>} transitionsSet - The set of all active transitions
+ * @param {number} now - The frame timestamp (performance.now-based) from rAF
  */
-function animateFeature(map: Map, feature: any, keyName: string, transitionsSet: Set<any>) {
-  const now = Date.now();
-  const style = keyName.split("-").slice(1).join("-"); // Extract style from keyName
+function animateFeature(
+  map: Map,
+  feature: any,
+  transition: any,
+  transitionsSet: Set<any>,
+  now: number
+) {
+  // Bail out if this transition has been superseded or removed.
+  if (!transitionsSet.has(transition)) return;
 
-  // Get the transition from our set
-  const transition = Array.from(transitionsSet).find((t: any) => t[keyName]);
-  if (!transition) return;
-
-  const scale = transition[keyName];
-  const domain = scale.domain();
-  const endTime = domain[domain.length - 1];
-  
-  if (now >= endTime) {
-    // Transition is complete - set final value and remove from transitions
-    const finalState: TransitionState = {};
-    Object.keys(transition).forEach(key => {
-      if (key !== 'options') {
-        const styleName = key.split('-').slice(1).join('-');
-        // Check if options and paint exist before accessing
-        if (transition.options && transition.options.paint && transition.options.paint[styleName]) {
-          const values = transition.options.paint[styleName];
-          finalState[styleName] = values[values.length - 1];
-        } else {
-          // For reversed transitions, we need to get the final value from the scale
-          const scale = transition[key];
-          if (scale && scale.range) {
-            const range = scale.range();
-            finalState[styleName] = range[range.length - 1];
-          }
-        }
-      }
-    });
-    map.setFeatureState(
-      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
-      finalState
-    );
+  const keys = Object.keys(transition).filter(key => !TRANSITION_META_KEYS.has(key));
+  if (keys.length === 0) {
     transitionsSet.delete(transition);
-    
-    // Call onComplete callback if it exists
+    return;
+  }
+
+  // The transition is done once every property has passed its own end time.
+  let endTime = -Infinity;
+  keys.forEach(key => {
+    endTime = Math.max(endTime, transition[key].__end);
+  });
+
+  const target = {
+    source: feature.source,
+    sourceLayer: feature.sourceLayer,
+    id: feature.id,
+  };
+
+  if (now >= endTime) {
+    // Snap to the final value of every property and retire the transition.
+    const finalState: TransitionState = {};
+    keys.forEach(key => {
+      const styleName = key.split("-").slice(1).join("-");
+      finalState[styleName] = transition[key].__final;
+    });
+    map.setFeatureState(target, finalState);
+    transitionsSet.delete(transition);
+
     const options = transition.options;
     if (options?.onComplete) {
       options.onComplete();
     }
-  } else {
-    // Update current values for all properties
-    const currentState: TransitionState = {};
-    Object.keys(transition).forEach(key => {
-      if (key !== 'options') {
-        const styleName = key.split('-').slice(1).join('-');
-        currentState[styleName] = transition[key](now);
-      }
-    });
-    map.setFeatureState(
-      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
-      currentState
-    );
-
-    // Schedule the next tick
-    requestAnimationFrame(() => animateFeature(map, feature, keyName, transitionsSet));
+    return;
   }
+
+  // Sample every property at this frame's timestamp and write once.
+  const currentState: TransitionState = {};
+  keys.forEach(key => {
+    const styleName = key.split("-").slice(1).join("-");
+    currentState[styleName] = transition[key](now);
+  });
+  map.setFeatureState(target, currentState);
+
+  // A single rAF loop drives every property on this feature.
+  transition.__raf = requestAnimationFrame((frameTime: number) =>
+    animateFeature(map, feature, transition, transitionsSet, frameTime)
+  );
 }
 
 /**
@@ -219,8 +228,13 @@ export function init(map: Map): void {
 
     /**
      * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
-     * This is used when a new transition is started while an existing one is still in progress.
-     * 
+     *
+     * @deprecated No longer used internally. Interruptions now start a fresh
+     * transition from the property's current feature-state value to the new
+     * target, which handles colors and multi-breakpoint scales correctly.
+     * This method is retained only for API/type compatibility and does not
+     * support color scales. It will be removed in a future major version.
+     *
      * @param {any} scale - The original d3 scale to reverse
      * @param {number} currentTime - The current timestamp
      * @param {any} easeFn - The easing function to use for the reverse transition
@@ -285,7 +299,9 @@ export function init(map: Map): void {
   // Create the transition function
   const transitionFunction = function (feature: any, options?: TransitionOptions) {
     const { duration = 1000, delay = 0, ease = "linear" } = options || {};
-    const now = Date.now() + delay;
+    // performance.now() shares its time origin with the rAF timestamp used in
+    // animateFeature, so the start time and every per-frame sample agree.
+    const now = performance.now() + delay;
 
     // Get all paint properties from the options
     const paintProperties = options?.paint || {};
@@ -407,6 +423,10 @@ export function init(map: Map): void {
           return colorInterpolator(easedProgress);
         };
         Object.assign(wrappedScale, scaleLinear().domain([now, now + duration]).range([0, 1]).clamp(true));
+        // Record the true end time and final value directly on the scale, so the
+        // completion path never has to re-derive them from a numeric range.
+        (wrappedScale as any).__end = now + duration;
+        (wrappedScale as any).__final = wrappedScale(now + duration);
         scales[`${feature.id}-${style}`] = wrappedScale;
       } else {
         // Use regular linear interpolation for non-color values
@@ -430,40 +450,50 @@ export function init(map: Map): void {
         };
 
         Object.assign(wrappedScale, scale);
+        (wrappedScale as any).__end = now + duration;
+        (wrappedScale as any).__final = wrappedScale(now + duration);
         scales[`${feature.id}-${style}`] = wrappedScale;
       }
     });
 
-    // Check if there are existing transitions for this feature
-    const existingTransitions = Array.from(sharedProperties.transitions).filter(
-      (t) => Object.keys(t).some(key => key.startsWith(`${feature.id}-`))
+    // Merge these scales into this feature's transition, or start a fresh one.
+    // Because each new scale already starts from the feature's *current* state
+    // (see the effective-values handling above), interrupting a running
+    // transition simply continues from wherever the property is right now —
+    // no reverse scale required.
+    const existing = Array.from(sharedProperties.transitions).find(
+      (t) => Object.keys(t).some(
+        key => !TRANSITION_META_KEYS.has(key) && key.startsWith(`${feature.id}-`)
+      )
     );
 
-    // If there are existing transitions, reverse them
-    if (existingTransitions.length > 0) {
-      existingTransitions.forEach(transition => {
-        const reversedScales: TransitionScales = {};
-        Object.keys(transition).forEach(key => {
-          if (key !== 'options') {
-            reversedScales[key] = sharedProperties.reverseScale(
-              transition[key],
-              now,
-              easeFn
-            );
-          }
-        });
-        sharedProperties.transitions.delete(transition);
-        sharedProperties.transitions.add({ ...reversedScales, options });
+    let activeTransition: any;
+    if (existing) {
+      // Cancel the in-flight frame and carry forward any properties this call
+      // doesn't touch, so independent transitions on the same feature coexist.
+      if (existing.__raf !== undefined) cancelAnimationFrame(existing.__raf);
+      sharedProperties.transitions.delete(existing);
+
+      activeTransition = {};
+      Object.keys(existing).forEach(key => {
+        if (!TRANSITION_META_KEYS.has(key)) activeTransition[key] = existing[key];
       });
+      Object.assign(activeTransition, scales);
+      activeTransition.options = options;
     } else {
-      // Otherwise, add the new transitions
-      sharedProperties.transitions.add({ ...scales, options });
+      activeTransition = { ...scales, options };
     }
 
-    // Start the animation for each property
-    Object.keys(scales).forEach(keyName => {
-      animateFeature(map, feature, keyName, sharedProperties.transitions);
-    });
+    sharedProperties.transitions.add(activeTransition);
+
+    if (options?.onStart) {
+      options.onStart();
+    }
+
+    // A single rAF loop drives every property on this feature.
+    activeTransition.__raf = requestAnimationFrame((frameTime: number) =>
+      animateFeature(map, feature, activeTransition, sharedProperties.transitions, frameTime)
+    );
   };
 
   // Assign both map.T and map.transition with the same functionality
