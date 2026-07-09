@@ -16,7 +16,8 @@ export default defineConfig({
                 'multiple-properties': 'examples/multiple-properties.html',
                 'chained-transitions': 'examples/chained-transitions.html',
                 'hover-effects': 'examples/hover-effects.html',
-                'multi-breakpoint': 'examples/multi-breakpoint.html'
+                'multi-breakpoint': 'examples/multi-breakpoint.html',
+                'concurrent-effects': 'examples/concurrent-effects.html'
             }
         }
     },
