@@ -17,7 +17,8 @@ export default defineConfig({
                 'chained-transitions': 'examples/chained-transitions.html',
                 'hover-effects': 'examples/hover-effects.html',
                 'multi-breakpoint': 'examples/multi-breakpoint.html',
-                'concurrent-effects': 'examples/concurrent-effects.html'
+                'concurrent-effects': 'examples/concurrent-effects.html',
+                'rising-city': 'examples/rising-city.html'
             }
         }
     },
