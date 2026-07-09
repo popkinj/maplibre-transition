@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rising City - MapLibre Transition</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+    />
+    <link rel="stylesheet" href="styles/shared.css" />
+    <style>
+      /* This demo reads better on a dark map, so tint the floating panel too. */
+      .rising #map {
+        background: #0b0f1a;
+      }
+      .rising .controls {
+        background: rgba(17, 22, 37, 0.92);
+        color: #e6ecff;
+      }
+      .rising .controls h2 {
+        color: #ffffff;
+      }
+      .rising .controls p,
+      .rising .control-group label {
+        color: #c3ccf0;
+      }
+      .rising .control-group select {
+        background: #0f1424;
+        color: #e6ecff;
+        border-color: #2a3350;
+      }
+      .rising .readout {
+        margin-top: 1.25rem;
+        padding: 0.85rem 1rem;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 6px;
+        font-size: 0.85rem;
+      }
+      .rising .readout strong {
+        color: #ffffff;
+      }
+      .rising .credit {
+        margin-top: 0.75rem;
+        font-size: 0.72rem;
+        opacity: 0.6;
+      }
+      .rising .credit a {
+        color: inherit;
+      }
+    </style>
+    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  </head>
+  <body class="rising">
+    <header>
+      <div class="header-content">
+        <a href="./" class="logo">
+          <div class="logo-icon">T</div>
+          <h1>MapLibre Transition</h1>
+        </a>
+        <nav>
+          <a href="./">Examples</a>
+          <a
+            href="https://github.com/popkinj/maplibre-transition"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+          <div class="controls">
+            <h2>Rising City</h2>
+            <p>
+              450 real downtown Vancouver buildings grow from their footprints to
+              full height by animating <code>fill-extrusion-height</code> — one
+              transition per building, staggered so the skyline sweeps up.
+            </p>
+
+            <div class="control-group">
+              <button id="grow-btn" data-testid="grow-btn">Grow city</button>
+            </div>
+
+            <div class="control-group">
+              <label
+                >Max stagger:
+                <span class="value-display" id="stagger-value">1600ms</span></label
+              >
+              <input
+                type="range"
+                id="stagger"
+                data-testid="stagger-slider"
+                min="0"
+                max="3000"
+                value="1600"
+                step="100"
+              />
+            </div>
+
+            <div class="control-group">
+              <label
+                >Duration:
+                <span class="value-display" id="duration-value">1400ms</span></label
+              >
+              <input
+                type="range"
+                id="duration"
+                data-testid="duration-slider"
+                min="400"
+                max="3000"
+                value="1400"
+                step="100"
+              />
+            </div>
+
+            <div class="control-group">
+              <label>Rise pattern</label>
+              <select id="pattern" data-testid="pattern-select">
+                <option value="scatter" selected>Random scatter</option>
+                <option value="wave">Radial wave from centre</option>
+                <option value="tallest">Tallest first</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label>Effect</label>
+              <select id="effect" data-testid="effect-select">
+                <option value="mix" selected>Random mix</option>
+                <option value="elastic">Elastic pop</option>
+                <option value="bounce">Bounce</option>
+                <option value="cubic">Smooth</option>
+              </select>
+            </div>
+
+            <div class="readout">
+              <div>
+                <strong>Buildings:</strong>
+                <span id="building-count" data-testid="building-count">0</span>
+              </div>
+              <div style="margin-top: 0.3rem">
+                <strong>Animating:</strong>
+                <span id="active-count" data-testid="active-count">0</span>
+              </div>
+            </div>
+
+            <div class="credit">
+              Building data © OpenStreetMap contributors (ODbL).
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      import MaplibreTransition from "../dist/index.esm.js";
+      import { vancouverBuildings } from "./data/vancouver-buildings.js";
+
+      const CENTER = [-123.1185, 49.284];
+      const buildings = vancouverBuildings.features; // feature.id === array index
+      const maxHeight = Math.max(...buildings.map((b) => b.properties.height));
+
+      // Precompute a centroid + distance-from-centre for each building (for patterns).
+      const centroids = buildings.map((b) => {
+        const ring = b.geometry.coordinates[0];
+        let x = 0,
+          y = 0;
+        const n = ring.length - 1;
+        for (let i = 0; i < n; i++) {
+          x += ring[i][0];
+          y += ring[i][1];
+        }
+        return [x / n, y / n];
+      });
+      const dists = centroids.map((c) => Math.hypot(c[0] - CENTER[0], c[1] - CENTER[1]));
+      const maxDist = Math.max(...dists);
+
+      // Eases blended for the "Random mix" effect.
+      const MIX = ["bounce", "cubic", "elastic", "exp", "sin", "quad"];
+
+      const map = new maplibregl.Map({
+        container: "map",
+        style: {
+          version: 8,
+          sources: {},
+          layers: [
+            { id: "bg", type: "background", paint: { "background-color": "#0b0f1a" } },
+          ],
+        },
+        center: CENTER,
+        zoom: 15.3,
+        pitch: 55,
+        bearing: -20,
+        antialias: true,
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-left");
+      MaplibreTransition.init(map);
+
+      // Expose test hooks for Playwright
+      window.__testHooks = {
+        map: map,
+        getTransitionCount: () => map.transition.transitions.size,
+        waitForLoad: () =>
+          new Promise((resolve) => {
+            if (map.loaded()) resolve();
+            else map.once("load", resolve);
+          }),
+      };
+
+      const feature = (i) => ({
+        id: buildings[i].id,
+        source: "buildings",
+        sourceLayer: undefined,
+        layer: { id: "buildings-layer" },
+        properties: buildings[i].properties,
+      });
+
+      let grown = false;
+
+      function delayFor(i, pattern, maxStagger) {
+        if (pattern === "wave") return (dists[i] / maxDist) * maxStagger;
+        if (pattern === "tallest")
+          return (1 - buildings[i].properties.height / maxHeight) * maxStagger;
+        return Math.random() * maxStagger; // scatter
+      }
+
+      function grow() {
+        const maxStagger = Number(document.getElementById("stagger").value);
+        const duration = Number(document.getElementById("duration").value);
+        const pattern = document.getElementById("pattern").value;
+        const effect = document.getElementById("effect").value;
+
+        buildings.forEach((b, i) => {
+          const ease = effect === "mix" ? MIX[Math.floor(Math.random() * MIX.length)] : effect;
+          map.transition(feature(i), {
+            duration,
+            delay: delayFor(i, pattern, maxStagger),
+            ease,
+            paint: { "fill-extrusion-height": [0, b.properties.height] },
+          });
+        });
+        grown = true;
+        updateButton();
+      }
+
+      function collapse() {
+        const duration = Math.min(
+          Number(document.getElementById("duration").value),
+          900
+        );
+        buildings.forEach((b, i) => {
+          map.transition(feature(i), {
+            duration,
+            ease: "cubic",
+            paint: { "fill-extrusion-height": [null, 0] },
+          });
+        });
+        grown = false;
+        updateButton();
+      }
+
+      function updateButton() {
+        document.getElementById("grow-btn").textContent = grown
+          ? "Collapse"
+          : "Grow city";
+      }
+
+      map.on("load", () => {
+        map.addSource("buildings", {
+          type: "geojson",
+          data: vancouverBuildings,
+        });
+
+        map.addLayer({
+          id: "buildings-layer",
+          type: "fill-extrusion",
+          source: "buildings",
+          paint: {
+            "fill-extrusion-height": 0,
+            "fill-extrusion-base": 0,
+            "fill-extrusion-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "height"],
+              0,
+              "#24304f",
+              30,
+              "#345189",
+              80,
+              "#5b8fc4",
+              150,
+              "#9fd0f2",
+              201,
+              "#dcecfb",
+            ],
+            "fill-extrusion-opacity": 0.92,
+          },
+        });
+
+        document.getElementById("building-count").textContent = buildings.length;
+
+        // Wire controls
+        const staggerSlider = document.getElementById("stagger");
+        const durationSlider = document.getElementById("duration");
+        staggerSlider.addEventListener("input", (e) => {
+          document.getElementById("stagger-value").textContent = `${e.target.value}ms`;
+        });
+        durationSlider.addEventListener("input", (e) => {
+          document.getElementById("duration-value").textContent = `${e.target.value}ms`;
+        });
+        document.getElementById("grow-btn").addEventListener("click", () => {
+          grown ? collapse() : grow();
+        });
+
+        // Live "animating" readout.
+        const activeEl = document.getElementById("active-count");
+        const tick = () => {
+          activeEl.textContent = map.transition.transitions.size;
+          requestAnimationFrame(tick);
+        };
+        tick();
+
+        // Auto-grow shortly after load for an immediate skyline reveal.
+        setTimeout(grow, 500);
+      });
+    </script>
+  </body>
+</html>

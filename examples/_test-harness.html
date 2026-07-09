@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Internal test harness for E2E regression tests. Not linked from the site
+      and intentionally excluded from the production build (vite.examples.config.js).
+      Exposes a small, deterministic API on window.__testHooks so specs can drive
+      transitions on known feature ids and read feature state without any UI.
+    -->
+    <title>Test Harness - MapLibre Transition</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+    />
+    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <style>
+      html,
+      body,
+      #map {
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map" data-testid="map-container"></div>
+    <script type="module">
+      import MaplibreTransition from "../dist/index.esm.js";
+
+      // Five points with explicit, stable numeric ids (no generateId quirks).
+      const points = {
+        type: "FeatureCollection",
+        features: [0, 1, 2, 3, 4].map((i) => ({
+          type: "Feature",
+          id: i,
+          properties: {},
+          geometry: { type: "Point", coordinates: [-116 + i * 8, 55] },
+        })),
+      };
+
+      const map = new maplibregl.Map({
+        container: "map",
+        style: "https://demotiles.maplibre.org/style.json",
+        center: [-95, 55],
+        zoom: 3,
+      });
+
+      MaplibreTransition.init(map);
+
+      const feature = (id) => ({
+        id,
+        source: "points",
+        sourceLayer: undefined,
+        layer: { id: "points-layer" },
+      });
+
+      let ready = false;
+
+      window.__testHooks = {
+        map,
+        getTransitionCount: () => map.transition.transitions.size,
+        // Resolves once the source + layer exist, so transitions can be applied.
+        waitForLoad: () =>
+          new Promise((resolve) => {
+            const check = () => (ready ? resolve() : setTimeout(check, 20));
+            check();
+          }),
+        // Apply a transition to a known feature id.
+        transition: (id, options) => map.transition(feature(id), options),
+        // Read a feature's current state (the values the animation writes).
+        state: (id) => map.getFeatureState({ source: "points", id }),
+      };
+
+      map.on("load", () => {
+        map.addSource("points", { type: "geojson", data: points });
+        map.addLayer({
+          id: "points-layer",
+          type: "circle",
+          source: "points",
+          paint: {
+            "circle-radius": 10,
+            "circle-color": "#3366cc",
+            "circle-opacity": 0.8,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+        ready = true;
+      });
+    </script>
+  </body>
+</html>
