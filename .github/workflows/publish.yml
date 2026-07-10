@@ -1,0 +1,63 @@
+name: Publish to npm
+
+# Publishes the package to npm using OIDC Trusted Publishing.
+# No npm token is required: npm exchanges the workflow's short-lived
+# OIDC identity for publish rights, so there are no tokens/2FA/passkeys involved.
+#
+# One-time setup on npmjs.com (see repo notes):
+#   Package -> Settings -> Trusted Publisher -> GitHub Actions
+#   Repository: popkinj/maplibre-transition
+#   Workflow filename: publish.yml
+#
+# To release: bump the version in package.json, commit, then create a
+# GitHub Release whose tag is `v<version>` (e.g. v1.1.0). This workflow runs
+# on release publish. `workflow_dispatch` is also available for manual runs.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for OIDC Trusted Publishing + provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      # Trusted Publishing requires npm >= 11.5.1; Node 22 ships an older npm.
+      - name: Upgrade npm (OIDC support)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run unit tests
+        run: npm test
+
+      # Guard against tag/package.json drift on release-triggered runs.
+      - name: Verify version matches release tag
+        if: github.event_name == 'release'
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG" ]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match release tag ($TAG)"
+            exit 1
+          fi
+          echo "Publishing version $PKG_VERSION"
+
+      - name: Publish
+        run: npm publish --provenance --access public
