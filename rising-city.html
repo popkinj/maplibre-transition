@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rising City - MapLibre Transition</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+    />
+    <style>
+      /* This demo reads better on a dark map, so tint the floating panel too. */
+      .rising #map {
+        background: #0b0f1a;
+      }
+      .rising .controls {
+        background: rgba(17, 22, 37, 0.92);
+        color: #e6ecff;
+      }
+      .rising .controls h2 {
+        color: #ffffff;
+      }
+      .rising .controls p,
+      .rising .control-group label {
+        color: #c3ccf0;
+      }
+      .rising .control-group select {
+        background: #0f1424;
+        color: #e6ecff;
+        border-color: #2a3350;
+      }
+      .rising .readout {
+        margin-top: 1.25rem;
+        padding: 0.85rem 1rem;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 6px;
+        font-size: 0.85rem;
+      }
+      .rising .readout strong {
+        color: #ffffff;
+      }
+      .rising .credit {
+        margin-top: 0.75rem;
+        font-size: 0.72rem;
+        opacity: 0.6;
+      }
+      .rising .credit a {
+        color: inherit;
+      }
+    </style>
+    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script type="module" crossorigin src="/maplibre-transition/assets/rising-city-DVNxzdSf.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-rmm1VzeP.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+  </head>
+  <body class="rising">
+    <header>
+      <div class="header-content">
+        <a href="./" class="logo">
+          <div class="logo-icon">T</div>
+          <h1>MapLibre Transition</h1>
+        </a>
+        <nav>
+          <a href="./">Examples</a>
+          <a
+            href="https://github.com/popkinj/maplibre-transition"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+          <div class="controls">
+            <h2>Rising City</h2>
+            <p>
+              450 real downtown Vancouver buildings grow from their footprints to
+              full height by animating <code>fill-extrusion-height</code> — one
+              transition per building, staggered so the skyline sweeps up.
+            </p>
+
+            <div class="control-group">
+              <button id="grow-btn" data-testid="grow-btn">Grow city</button>
+            </div>
+
+            <div class="control-group">
+              <label
+                >Max stagger:
+                <span class="value-display" id="stagger-value">1600ms</span></label
+              >
+              <input
+                type="range"
+                id="stagger"
+                data-testid="stagger-slider"
+                min="0"
+                max="3000"
+                value="1600"
+                step="100"
+              />
+            </div>
+
+            <div class="control-group">
+              <label
+                >Duration:
+                <span class="value-display" id="duration-value">1400ms</span></label
+              >
+              <input
+                type="range"
+                id="duration"
+                data-testid="duration-slider"
+                min="400"
+                max="3000"
+                value="1400"
+                step="100"
+              />
+            </div>
+
+            <div class="control-group">
+              <label>Rise pattern</label>
+              <select id="pattern" data-testid="pattern-select">
+                <option value="scatter" selected>Random scatter</option>
+                <option value="wave">Radial wave from centre</option>
+                <option value="tallest">Tallest first</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label>Effect</label>
+              <select id="effect" data-testid="effect-select">
+                <option value="mix" selected>Random mix</option>
+                <option value="elastic">Elastic pop</option>
+                <option value="bounce">Bounce</option>
+                <option value="cubic">Smooth</option>
+              </select>
+            </div>
+
+            <div class="readout">
+              <div>
+                <strong>Buildings:</strong>
+                <span id="building-count" data-testid="building-count">0</span>
+              </div>
+              <div style="margin-top: 0.3rem">
+                <strong>Animating:</strong>
+                <span id="active-count" data-testid="active-count">0</span>
+              </div>
+            </div>
+
+            <div class="credit">
+              Building data © OpenStreetMap contributors (ODbL).
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </body>
+</html>

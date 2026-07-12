@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Concurrent Effects - MapLibre Transition</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+    />
+    <style>
+      .control-group .channel-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 400;
+        cursor: pointer;
+        margin-bottom: 0.4rem;
+      }
+      .control-group .channel-row input {
+        width: auto;
+        cursor: pointer;
+      }
+      .control-group .channel-row .value-display {
+        margin-left: auto;
+      }
+    </style>
+    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script type="module" crossorigin src="/maplibre-transition/assets/concurrent-effects-D7b_yltM.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-rmm1VzeP.js">
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-6SEu6TPq.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <a href="./" class="logo">
+          <div class="logo-icon">T</div>
+          <h1>MapLibre Transition</h1>
+        </a>
+        <nav>
+          <a href="./">Examples</a>
+          <a
+            href="https://github.com/popkinj/maplibre-transition"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+          <div class="controls">
+            <h2>Concurrent Effects</h2>
+            <p>
+              Click a city to bring it to life. Each property animates on its
+              <em>own clock</em> — radius, color, opacity, and stroke loop at
+              different periods, so they drift in and out of phase and coexist
+              without cancelling each other. Click again to calm it.
+            </p>
+
+            <div class="control-group">
+              <label>Independent channels</label>
+              <label class="channel-row">
+                <input type="checkbox" id="chan-radius" data-testid="chan-radius" checked />
+                Radius pulse <span class="value-display">1.5s</span>
+              </label>
+              <label class="channel-row">
+                <input type="checkbox" id="chan-color" data-testid="chan-color" checked />
+                Color cycle <span class="value-display">2.4s</span>
+              </label>
+              <label class="channel-row">
+                <input type="checkbox" id="chan-opacity" data-testid="chan-opacity" checked />
+                Opacity breathe <span class="value-display">1.9s</span>
+              </label>
+              <label class="channel-row">
+                <input type="checkbox" id="chan-stroke" data-testid="chan-stroke" checked />
+                Stroke pulse <span class="value-display">1.1s</span>
+              </label>
+            </div>
+
+            <div class="control-group">
+              <button id="calm-all" data-testid="calm-all" class="btn">Calm all</button>
+            </div>
+
+            <div
+              style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;"
+            >
+              <div><strong>Alive markers:</strong> <span id="alive-count" data-testid="alive-count">0</span></div>
+              <div style="margin-top: 0.4rem; font-family: monospace;">
+                <strong>Live sample:</strong> <span id="sample" data-testid="sample">—</span>
+              </div>
+              <p style="margin-top: 0.6rem; opacity: 0.8;">
+                The live sample reads the most-recently woken marker's feature
+                state every frame — proof the values stay continuous and valid
+                as four independent transitions overlap on one feature.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </body>
+</html>
