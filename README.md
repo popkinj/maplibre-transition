@@ -348,7 +348,8 @@ The demo site includes examples for:
 - Chained Transitions - Sequential animation chains
 - Hover Effects - Mouse-triggered transitions
 - Multi-Breakpoint - Complex piecewise animations
-- Vector Tiles - Transitions with vector tile sources
+- Concurrent Effects - Overlapping transitions on the same feature
+- Rising City - Extrusion height transitions on 3D buildings
 
 
 ## Development
@@ -399,7 +400,22 @@ npm run test:all
 
 ## Deployment
 
-### Deploy Demo Pages to GitHub Pages
+### Publishing a release to npm
+
+Publishing is automated via GitHub Actions using OIDC Trusted Publishing — no
+local `npm login`, tokens, or 2FA required.
+
+```bash
+npm version patch                      # bump version, create commit + tag
+git push origin main --follow-tags     # push both
+gh release create v1.2.3 --generate-notes   # triggers the publish workflow
+```
+
+Creating the GitHub Release runs `.github/workflows/publish.yml`, which builds,
+tests, verifies the tag matches `package.json`, and publishes with provenance.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full flow and the one-time trusted-publisher setup.
+
+### Deploy demo pages to GitHub Pages
 
 ```bash
 npm run deploy:examples

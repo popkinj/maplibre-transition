@@ -46,6 +46,22 @@ npm run test:all
 
 ## Deployment Commands
 
+### Publish to npm (automated via OIDC)
+
+Publishing runs in GitHub Actions via OIDC Trusted Publishing (`.github/workflows/publish.yml`) —
+there is no local `npm login`/`npm publish` and no tokens or 2FA. Cut a release by
+tagging a version; the GitHub Release triggers the publish workflow.
+
+```bash
+npm version patch                            # bump version, create commit + tag
+git push origin main --follow-tags           # push commit and tag
+gh release create v1.2.3 --generate-notes    # triggers publish workflow
+```
+
+See `DEPLOYMENT.md` for the full flow, the one-time trusted-publisher setup, and gotchas.
+
+### Deploy examples to GitHub Pages
+
 ```bash
 # Deploy examples to GitHub Pages
 npm run deploy:examples
@@ -88,7 +104,9 @@ The `examples/` directory contains interactive demo pages deployed to GitHub Pag
 - `chained-transitions.html` - Sequential animation chains
 - `hover-effects.html` - Mouse-triggered transitions
 - `multi-breakpoint.html` - Complex piecewise animations
-- `vector-tiles.html` - Transitions with vector tile sources
+- `concurrent-effects.html` - Overlapping transitions on the same feature
+- `rising-city.html` - Extrusion height transitions on 3D buildings
+- `_test-harness.html` - Deterministic harness driven by the e2e interruptions spec (not a demo)
 
 Vite serves these examples with base path `/maplibre-transition/`.
 
@@ -135,7 +153,7 @@ E2E tests use Playwright with WebGL support:
 - Uses `data-testid` attributes for reliable element selection
 - Demo pages expose `window.__testHooks` for test access to map instance
 
-Test files cover all 9 demo pages plus the landing page:
+Test files cover the demo pages plus the landing page and behavior-focused specs:
 - `landing-page.spec.ts` - Landing page navigation and content
 - `basic-transition.spec.ts` - Basic transition controls and behavior
 - `color-animation.spec.ts` - Color picker and transitions
@@ -145,7 +163,9 @@ Test files cover all 9 demo pages plus the landing page:
 - `chained-transitions.spec.ts` - Chain type selection and control
 - `hover-effects.spec.ts` - Effect selection and hover behavior
 - `multi-breakpoint.spec.ts` - Pattern selection and breakpoint display
-- `vector-tiles.spec.ts` - Vector tile source and feature selection
+- `concurrent-effects.spec.ts` - Overlapping transitions on one feature
+- `rising-city.spec.ts` - Extrusion height transitions
+- `interruptions.spec.ts` - Mid-transition interruption/reversal, driven by `_test-harness.html`
 
 ### Test Helpers (tests/e2e/fixtures/test-helpers.ts)
 
@@ -154,9 +174,14 @@ Shared utilities for E2E tests:
 - `getTransitionCount(page)` - Returns active transition count
 - `waitForTransitionComplete(page)` - Waits for all transitions to finish
 
-### CI/CD (.github/workflows/test.yml)
+### CI/CD
 
-GitHub Actions workflow runs on push/PR to main:
+**`.github/workflows/test.yml`** runs on push/PR to main:
 - Unit tests with coverage upload
-- E2E tests across chromium, firefox, webkit
+- E2E tests on chromium only (Firefox/WebKit have unreliable headless WebGL on Linux, which MapLibre requires)
 - Playwright report artifact upload
+
+**`.github/workflows/publish.yml`** runs on GitHub Release publish (or manual dispatch):
+- Builds, runs unit tests, verifies the release tag matches `package.json`
+- Publishes to npm via OIDC Trusted Publishing with provenance (no tokens/2FA)
+- See `DEPLOYMENT.md` for details

@@ -174,54 +174,26 @@ By storing and reusing this object, you avoid the unreliable `queryRenderedFeatu
 
 ---
 
-## 4. Potential Bug: `null` Start Value After Transition Completion
+## 4. Resolved: `null` Start Value After Transition Completion
 
-### Issue
+**Status: fixed.** `[null, target]` after a transition has completed now animates
+smoothly from the settled value instead of snapping to the target.
 
-When using `[null, targetValue]` to transition FROM current state, the `null` lookup may fail after a transition has completed (no active animation). This causes the feature to snap to the target value instead of transitioning smoothly.
+The refactor that replaced `reverseScale` with "start a fresh transition from the
+current feature-state value" made the start value robust: it falls back through
+feature state → the paint property's `coalesce` default → the target, so the
+degenerate single-value scale that caused the snap no longer occurs in normal use.
+On completion the animation writes the final value to feature state (`animateFeature`,
+the `now >= endTime` branch in `src/index.ts`), so a later `[null, …]` reads it back
+as the start value.
 
-### Reproduction
+Regression test: `tests/e2e/interruptions.spec.ts` →
+_"null start value after a completed transition animates from current state (no snap)"_.
 
-1. Hover over a feature → transition animates from defaults to hover state
-2. Wait for animation to complete (feature is now at hover size)
-3. Mouse leave → call `transition(feature, { paint: { 'circle-radius': [null, 6] } })`
-4. **Expected**: Smooth animation from 10 to 6
-5. **Actual**: Snaps instantly to 6
-
-### Suspected Cause
-
-In the plugin code (lines 374-389), when `null` is the first value:
-
-```javascript
-if (firstValue === null || firstValue === undefined) {
-  effectiveValues =
-    startValue !== undefined
-      ? [startValue, ...values.slice(1)]
-      : values.slice(1); // <-- If startValue undefined, only target value remains
-}
-```
-
-If `startValue` is undefined (feature state not found via `getFeatureState()`), then `effectiveValues` becomes `[targetValue]` - a single-value array. This creates a scale that instantly returns the target value.
-
-### Investigation Needed
-
-1. Why would `getFeatureState()` return undefined after a transition completes?
-2. Is the feature state being cleared somewhere?
-3. Is there a key format mismatch (camelCase vs kebab-case)?
-
-### Current Workaround
-
-Explicitly specify start values instead of relying on `null`:
-
-```javascript
-// Instead of:
-paint: { 'circle-radius': [null, 6] }
-
-// Use:
-paint: { 'circle-radius': [10, 6] }  // Explicit start value
-```
-
-The plugin's auto-reversal will still handle mid-animation interruption correctly when using explicit values.
+One narrow edge remains: a malformed call with no target (e.g. `[null]`) on a feature
+with no state and no readable paint default can still divide by zero in the domain
+calc (`numericValues.length - 1 === 0`). Not a real usage pattern — guard it only if
+it ever surfaces.
 
 ---
 

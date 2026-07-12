@@ -38,12 +38,10 @@ jobs:
           # publishing targets the default registry and needs no .npmrc token.
 
       # Trusted Publishing requires npm >= 11.5.1; Node 22 ships an older npm.
-      - name: Upgrade npm + verify OIDC prerequisites
+      - name: Upgrade npm (OIDC support)
         run: |
           npm install -g npm@latest
-          echo "node version: $(node --version)"
-          echo "npm version:  $(npm --version)"
-          echo "OIDC token URL present: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
+          npm --version
 
       - name: Install dependencies
         run: npm ci
@@ -67,4 +65,4 @@ jobs:
           echo "Publishing version $PKG_VERSION"
 
       - name: Publish
-        run: npm publish --provenance --access public --loglevel verbose
+        run: npm publish --provenance --access public

@@ -153,4 +153,40 @@ test.describe('Transition interruption & concurrency', () => {
     expect(r.final).toBe(10);
     expect(r.after).toBe(0);
   });
+
+  // Regression for the "null start value after completion" snap (TODO #4).
+  // Once a transition has fully completed, only feature state (no active scale)
+  // describes the current value. A follow-up [null, target] must read that
+  // settled value and ramp from it, not jump straight to the target.
+  test('null start value after a completed transition animates from current state (no snap)', async ({ page }) => {
+    const r = await page.evaluate(async () => {
+      const h: any = window.__testHooks;
+      const sleep = (ms: number) => new Promise((x) => setTimeout(x, ms));
+
+      // 1. Radius up to 20, then let it fully complete (transition count drains).
+      h.transition(0, { duration: 250, ease: 'linear', paint: { 'circle-radius': [null, 20] } });
+      for (let i = 0; i < 100 && h.getTransitionCount() > 0; i++) await sleep(20);
+      const settled = h.state(0)['circle-radius'];
+
+      // 2. Back down with a null start — must ramp 20 -> 6, not snap.
+      h.transition(0, { duration: 800, ease: 'linear', paint: { 'circle-radius': [null, 6] } });
+      await sleep(200);
+      const mid = h.state(0)['circle-radius'];
+      const during = h.getTransitionCount();
+
+      for (let i = 0; i < 100 && h.getTransitionCount() > 0; i++) await sleep(20);
+      return { settled, mid, during, final: h.state(0)['circle-radius'], after: h.getTransitionCount() };
+    });
+
+    // Precondition: the first transition settled exactly on its target.
+    expect(r.settled).toBe(20);
+    // The old bug snapped instantly to 6. Assert we are still partway between the
+    // settled start (20) and the target (6) mid-flight -> it animated from current state.
+    expect(r.during).toBe(1);
+    expect(r.mid).toBeGreaterThan(7);
+    expect(r.mid).toBeLessThan(20);
+    // And it still lands exactly on the new target.
+    expect(r.final).toBe(6);
+    expect(r.after).toBe(0);
+  });
 });
