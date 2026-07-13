@@ -1,6 +1,6 @@
 {
   "name": "maplibre-transition",
-  "version": "1.2.1",
+  "version": "2.0.0",
   "description": "Animate MapLibre GL JS paint properties per feature — radius, colour, opacity, extrusion height — with easing, delays and multi-stop breakpoints, on one requestAnimationFrame for the whole map.",
   "type": "module",
   "main": "dist/index.esm.js",
