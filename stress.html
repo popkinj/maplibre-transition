@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stress — maplibre-transition</title>
+
+    <!-- Theme, before first paint. Must stay a plain, non-deferred script. -->
+    <script>
+      (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+      if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+      var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+    </script>
+
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+
+    <style>
+      /* The two numbers that carry the page. Everything else is a knob. */
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .hero-cell {
+        padding: 0.6rem 0.9rem 0.7rem;
+        min-width: 0;
+      }
+
+      .hero-cell + .hero-cell {
+        border-left: 1px solid var(--hairline);
+      }
+
+      .hero-label {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+      }
+
+      .hero-value {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 1.7rem;
+        font-weight: 600;
+        line-height: 1.15;
+        color: var(--ink);
+      }
+
+      .hero-cell.kick .hero-value {
+        color: var(--accent);
+      }
+
+      .hero-unit {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--ink-muted);
+        margin-left: 0.15rem;
+      }
+
+      .hint {
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        line-height: 1.45;
+        color: var(--ink-muted);
+        margin-top: 0.4rem;
+      }
+
+      .hint b {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* Checkbox rows must not be direct children of .control-group, or the
+         group-label flex rules grab them. */
+      .rows {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+
+      .rows + .hint {
+        margin-top: 0.5rem;
+      }
+
+      .controls .btn.kick-btn {
+        padding: 0.7rem 0.9rem;
+        font-size: 0.95rem;
+      }
+    </style>
+
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+    <script type="module" crossorigin src="/maplibre-transition/assets/stress-CML5dgpa.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
+  </head>
+
+  <body>
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+
+          <div class="controls">
+            <h2>Stress</h2>
+            <p>
+              8,000 sensors on a jittered grid. Every one of them is a real
+              feature-state transition. Kick them all off and watch the frame
+              rail — then raise the stagger and watch it get
+              <em>cheaper</em>.
+            </p>
+
+            <div class="hero">
+              <div class="hero-cell kick">
+                <span class="hero-label">kick</span>
+                <span class="hero-value" data-testid="kick-ms">—</span
+                ><span class="hero-unit">ms</span>
+              </div>
+              <div class="hero-cell">
+                <span class="hero-label">fps</span>
+                <span class="hero-value" data-testid="fps">—</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <button class="btn kick-btn" data-testid="kick">
+                Kick everything off
+              </button>
+              <div class="hint">
+                kick = the synchronous cost of firing the whole batch
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="count">
+                <span class="paint-prop">features</span>
+                <span class="value-display" data-testid="count-value">2500</span>
+              </label>
+              <input
+                type="range"
+                id="count"
+                data-testid="count"
+                min="100"
+                max="8000"
+                step="100"
+                value="2500"
+              />
+              <div class="hint">
+                setFilter(["&lt;", ["id"], n]) — never setData, which would
+                rebuild the tiles and drop every feature state
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="pattern">pattern</label>
+              <select id="pattern" data-testid="pattern">
+                <option value="radial">radial wave</option>
+                <option value="sweep">sweep</option>
+                <option value="scatter">scatter</option>
+                <option value="all">all at once</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label for="stagger">
+                <span class="paint-prop">delay</span> spread
+                <span class="value-display" data-testid="stagger-value">600ms</span>
+              </label>
+              <input
+                type="range"
+                id="stagger"
+                data-testid="stagger"
+                min="0"
+                max="3000"
+                step="50"
+                value="600"
+              />
+              <div class="hint">
+                a delayed transition <b>costs nothing per frame until it
+                starts</b> — raise the spread and watch setFeatureState/frame
+                collapse, and, once the map is frame-bound, fps climb
+              </div>
+            </div>
+
+            <div class="control-group">
+              <span class="group-label">
+                channels
+                <span class="value-display" data-testid="channels-armed">3</span>
+              </span>
+              <div class="rows">
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-radius" checked />
+                  circle-radius
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-color" checked />
+                  circle-color
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-opacity" checked />
+                  circle-opacity
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-stroke" />
+                  circle-stroke-width
+                </label>
+              </div>
+              <div class="hint">
+                each channel is a separate map.transition() call on the same
+                feature, on its own clock
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="jitter">
+                duration jitter
+                <span class="value-display" data-testid="jitter-value">25%</span>
+              </label>
+              <input
+                type="range"
+                id="jitter"
+                data-testid="jitter"
+                min="0"
+                max="80"
+                step="5"
+                value="25"
+              />
+              <div class="rows">
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="random-ease" />
+                  random easing per feature
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="loop" />
+                  loop while idle
+                </label>
+              </div>
+            </div>
+
+            <div class="readout">
+              <div class="row">
+                <span>animating</span>
+                <span data-testid="animating">0</span>
+              </div>
+              <div class="row">
+                <span>channels/frame</span>
+                <span data-testid="channels">7500</span>
+              </div>
+              <div class="row">
+                <span>setFeatureState/frame</span>
+                <span data-testid="writes">0</span>
+              </div>
+              <div class="row">
+                <span>p95 frame</span>
+                <span data-testid="p95">—</span>
+              </div>
+              <div class="row">
+                <span>duration</span>
+                <span data-testid="duration">1200ms ±25%</span>
+              </div>
+            </div>
+
+            <div class="credit">
+              The rail times the <em>whole map</em>: while anything animates,
+              MapLibre repaints the basemap every frame, and that alone can miss
+              the 16.7ms budget. The plugin's share is one setFeatureState per
+              animating feature per frame — one, not one per channel.
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </body>
+</html>

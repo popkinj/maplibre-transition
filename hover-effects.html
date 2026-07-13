@@ -3,68 +3,154 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hover Effects - MapLibre Transition</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
-  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <title>Hover Effects — maplibre-transition</title>
+  <script>
+    (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+    if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+    var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
   <style>
-    #map {
-      cursor: pointer;
+    /* Dwell is the one page-specific instrument: a bar that fills while the
+       pointer rests on a feature, then latches when the effect fires. */
+    .dwell-meter {
+      position: relative;
+      height: 3px;
+      margin-top: 0.5rem;
+      background: var(--surface-2);
+      border-radius: 2px;
+      overflow: hidden;
     }
+
+    .dwell-meter::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform-origin: left center;
+      transform: scaleX(var(--fill, 0));
+      background: var(--accent);
+    }
+
+    .dwell-meter[data-state="engaged"]::after {
+      background: var(--ramp-3);
+    }
+
+    #map {
+      cursor: crosshair;
+    }
+
+    /* shared.css gives .panel-head `background: inherit` (the translucent --glass), so
+       on a short viewport, where this panel scrolls, content shows through the sticky
+       rail. Opaque surface here until shared.css is fixed. */
+    .panel-head { background: var(--surface); }
+
+    /* Two selects on one row — the panel is an instrument, not a form. */
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .pair label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--ink-muted);
+      margin-bottom: 0.45rem;
+    }
+
+    /* Which paint properties the selected effect actually animates. */
+    .effect-note {
+      margin-top: 0.55rem;
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      line-height: 1.5;
+      color: var(--ink-muted);
+      word-break: break-word;
+    }
+
+    .status-idle { color: var(--ink-muted) !important; }
+    .status-dwelling { color: var(--ramp-2) !important; }
+    .status-engaged { color: var(--ramp-3) !important; }
   </style>
-  <script type="module" crossorigin src="/maplibre-transition/assets/hover-effects-DVQ4wWUC.js"></script>
-  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-rmm1VzeP.js">
-  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-6SEu6TPq.js">
-  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+  <script type="module" crossorigin src="/maplibre-transition/assets/hover-effects-BqAjdstu.js"></script>
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-B9TBtVAP.js">
+  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
 </head>
 <body>
-  <header>
-    <div class="header-content">
-      <a href="./" class="logo">
-        <div class="logo-icon">T</div>
-        <h1>MapLibre Transition</h1>
-      </a>
-      <nav>
-        <a href="./">Examples</a>
-        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
-      </nav>
-    </div>
-  </header>
-
   <main>
     <div class="example-container">
       <div class="map-container">
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Hover Effects</h2>
-          <p>Hover over Canadian cities to trigger smooth transition effects.</p>
+          <p>
+            Rest the pointer on a city. <span class="paint-prop">delay</span> is a dwell
+            threshold — leave early and the pending transition is superseded, so it never runs.
+          </p>
 
           <div class="control-group">
-            <label>Hover Duration: <span class="value-display" id="duration-value">400ms</span></label>
+            <label>
+              <span class="paint-prop">delay</span>
+              <span class="value-display" id="dwell-value" data-testid="dwell-value">220ms</span>
+            </label>
+            <input type="range" id="dwell" data-testid="dwell-slider" min="0" max="2000" value="220" step="20">
+            <div class="dwell-meter" id="dwell-meter" data-testid="dwell-meter" data-state="idle"></div>
+          </div>
+
+          <div class="control-group">
+            <label>
+              <span class="paint-prop">duration</span>
+              <span class="value-display" id="duration-value" data-testid="duration-value">400ms</span>
+            </label>
             <input type="range" id="duration" data-testid="duration-slider" min="100" max="1000" value="400" step="50">
           </div>
 
           <div class="control-group">
-            <label>Hover Effect</label>
-            <select id="effect" data-testid="effect-select">
-              <option value="grow">Grow & Brighten</option>
-              <option value="pulse">Pulse</option>
-              <option value="color-shift">Color Shift</option>
-              <option value="glow">Glow Effect</option>
-            </select>
+            <div class="pair">
+              <div>
+                <label><span class="paint-prop">paint</span></label>
+                <select id="effect" data-testid="effect-select">
+                  <option value="grow">grow</option>
+                  <option value="pulse">pulse</option>
+                  <option value="color-shift">color-shift</option>
+                  <option value="glow">glow</option>
+                </select>
+              </div>
+              <div>
+                <label><span class="paint-prop">ease</span></label>
+                <select id="easing" data-testid="easing-select">
+                  <option value="quad" selected>quad</option>
+                  <option value="cubic">cubic</option>
+                  <option value="elastic">elastic</option>
+                  <option value="bounce">bounce</option>
+                </select>
+              </div>
+            </div>
+            <p class="effect-note" id="effect-note" data-testid="effect-note">
+              circle-radius, circle-opacity
+            </p>
           </div>
 
-          <div class="control-group">
-            <label>Easing Function</label>
-            <select id="easing" data-testid="easing-select">
-              <option value="quad" selected>Quadratic</option>
-              <option value="cubic">Cubic</option>
-              <option value="elastic">Elastic</option>
-              <option value="bounce">Bounce</option>
-            </select>
-          </div>
-
-          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Hover Count:</strong> <span id="hover-count" data-testid="hover-count-display">0</span>
+          <div class="readout">
+            <div class="row">
+              <span>status</span>
+              <span id="status" class="status-idle" data-testid="dwell-status">idle</span>
+            </div>
+            <div class="row">
+              <span>effects fired</span>
+              <span id="hover-count" data-testid="hover-count-display">0</span>
+            </div>
+            <div class="row">
+              <span>abandoned before delay</span>
+              <span id="abandoned-count" data-testid="abandoned-count">0</span>
+            </div>
+            <div class="row">
+              <span>animating</span>
+              <span id="active-count" data-testid="active-count">0</span>
+            </div>
           </div>
         </div>
       </div>

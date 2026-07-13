@@ -3,213 +3,549 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MapLibre Transition - Smooth Transitions for MapLibre GL JS</title>
+    <title>maplibre-transition — Smooth Transitions for MapLibre GL JS</title>
     <meta
       name="description"
-      content="A MapLibre GL JS plugin for smooth transitions between map styles with support for colors, easing functions, and multiple breakpoints."
+      content="A MapLibre GL JS plugin for smooth, per-feature paint transitions. Colors, radii, extrusion heights — with easing, delays, and multi-stop breakpoints."
     />
-    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+
+    <!-- Theme, before first paint. Must stay a plain, non-deferred script. -->
+    <script>
+      (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+      if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+      var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+    </script>
+
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+
+    <style>
+      main {
+        width: 100%;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 1.5rem 1.25rem 4rem;
+        flex: 1;
+      }
+
+      /* ----------------------------------------------------------------
+         Hero — a live map running a wavefront transition. The library
+         demoing itself, above the fold.
+         ---------------------------------------------------------------- */
+      .hero {
+        position: relative;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        min-height: 460px;
+        display: flex;
+        align-items: flex-end;
+      }
+
+      #hero-map {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+      }
+
+      /* The map is decoration behind type: mute it so the copy stays legible. */
+      #hero-map::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(
+          100deg,
+          var(--glass) 0%,
+          var(--glass) 34%,
+          transparent 68%
+        );
+      }
+
+      .hero-copy {
+        position: relative;
+        z-index: 1;
+        padding: 2.5rem 2rem 1.5rem;
+        max-width: 640px;
+      }
+
+      .hero h1 {
+        font-size: clamp(1.9rem, 4.2vw, 3rem);
+        margin-bottom: 0.75rem;
+      }
+
+      .hero p {
+        color: var(--ink-muted);
+        font-size: 1.02rem;
+        margin-bottom: 1.25rem;
+        max-width: 34em;
+      }
+
+      .hero .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        align-items: center;
+      }
+
+      .hero .cta a.primary {
+        display: inline-block;
+        padding: 0.6rem 1.1rem;
+        border-radius: var(--radius-sm);
+        background: var(--accent);
+        color: var(--accent-ink);
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+      }
+
+      .hero .cta a.secondary {
+        display: inline-block;
+        padding: 0.6rem 1.1rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--hairline);
+        background: var(--surface);
+        color: var(--ink);
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+      }
+
+      .hero .cta a:hover {
+        text-decoration: none;
+        filter: brightness(1.06);
+      }
+
+      /* The honest instrument, on the hero itself. */
+      .hero-meter {
+        position: absolute;
+        z-index: 2;
+        right: 0.85rem;
+        bottom: 0.85rem;
+        width: min(260px, 46vw);
+        padding: 0.5rem 0.6rem 0.45rem;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-sm);
+        background: var(--glass);
+        backdrop-filter: blur(6px);
+      }
+
+      .hero-meter .frame-rail {
+        width: 100%;
+        height: var(--rail-h);
+        display: block;
+      }
+
+      .hero-meter .rail-legend {
+        display: flex;
+        gap: 0.35rem;
+        align-items: baseline;
+        font-family: var(--font-mono);
+        font-size: 0.62rem;
+        color: var(--ink-muted);
+        margin-top: 0.3rem;
+      }
+
+      .hero-meter .rail-legend .spacer {
+        flex: 1;
+      }
+
+      .hero-meter .metric {
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+
+      /* Reduced motion: no autoplay. The button is the entry point. */
+      .hero-play {
+        display: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .hero-play {
+          display: inline-block;
+        }
+      }
+
+      /* ----------------------------------------------------------------
+         Cards
+         ---------------------------------------------------------------- */
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin: 3rem 0 1.25rem;
+      }
+
+      .section-head h2 {
+        font-size: 1.35rem;
+      }
+
+      .section-head .rule {
+        flex: 1;
+        height: 1px;
+        background: var(--hairline);
+      }
+
+      .section-head .count {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--ink-muted);
+      }
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1rem;
+      }
+
+      .feature-card {
+        grid-column: span 2;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 1.15rem 1.15rem 1rem;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--ink);
+        text-decoration: none;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .feature-card:hover {
+        text-decoration: none;
+        transform: translateY(-2px);
+        border-color: var(--accent);
+        box-shadow: var(--shadow);
+      }
+
+      .feature-card.wide {
+        grid-column: span 4;
+      }
+
+      .feature-card .icon {
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .feature-card h3 {
+        font-size: 1.1rem;
+      }
+
+      .feature-card.wide h3 {
+        font-size: 1.35rem;
+      }
+
+      .feature-card p {
+        color: var(--ink-muted);
+        font-size: 0.88rem;
+        line-height: 1.5;
+        flex: 1;
+      }
+
+      /* The one API line the page teaches. */
+      .card-api {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        line-height: 1.4;
+        color: var(--ink);
+        background: var(--surface-2);
+        border-radius: var(--radius-sm);
+        padding: 0.45rem 0.55rem;
+        overflow-x: auto;
+        white-space: pre;
+      }
+
+      /* ----------------------------------------------------------------
+         Getting started
+         ---------------------------------------------------------------- */
+      .start {
+        margin-top: 3rem;
+        padding: 2rem;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .start h2 {
+        font-size: 1.35rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .start h3 {
+        font-size: 0.72rem;
+        font-family: var(--font-mono);
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+        margin: 1.5rem 0 0.5rem;
+      }
+
+      .start h3:first-of-type {
+        margin-top: 0;
+      }
+
+      .start .note {
+        margin-top: 1.25rem;
+        padding: 0.75rem 0.9rem;
+        border-left: 2px solid var(--accent);
+        background: var(--surface-2);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        font-size: 0.85rem;
+        color: var(--ink-muted);
+      }
+
+      .start .note b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .start .note code {
+        font-family: var(--font-mono);
+        font-size: 0.8em;
+        color: var(--ink);
+      }
+
+      @media (max-width: 900px) {
+        .features-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .feature-card,
+        .feature-card.wide {
+          grid-column: span 2;
+        }
+
+        .hero {
+          min-height: 420px;
+        }
+
+        .hero-meter {
+          display: none;
+        }
+
+        #hero-map::after {
+          background: linear-gradient(
+            180deg,
+            transparent 0%,
+            var(--glass) 42%,
+            var(--glass) 100%
+          );
+        }
+      }
+
+      @media (max-width: 560px) {
+        .features-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .feature-card,
+        .feature-card.wide {
+          grid-column: span 1;
+        }
+
+        .hero-copy {
+          padding: 1.75rem 1.25rem 1.25rem;
+        }
+
+        .start {
+          padding: 1.25rem;
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="/maplibre-transition/assets/main-CpCpRrrm.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
   </head>
   <body>
-    <header>
-      <div class="header-content">
-        <a href="./" class="logo">
-          <div class="logo-icon">T</div>
-          <h1>MapLibre Transition</h1>
-        </a>
-        <nav>
-          <a
-            href="https://github.com/popkinj/maplibre-transition"
-            target="_blank"
-            >GitHub</a
-          >
-          <a
-            href="https://www.npmjs.com/package/maplibre-transition"
-            target="_blank"
-            >npm</a
-          >
-        </nav>
-      </div>
-    </header>
-
     <main>
+      <!-- ------------------------------------------------------------------
+           Hero
+           ------------------------------------------------------------------ -->
       <section class="hero">
-        <h1>Smooth Transitions for MapLibre GL JS</h1>
-        <p>
-          A powerful plugin that adds feature level transition functionality to
-          MapLibre GL JS maps. Animate colors, sizes, opacities, and more with
-          customizable easing functions.
-        </p>
-        <div class="cta">
-          <a
-            href="https://www.npmjs.com/package/maplibre-transition"
-            target="_blank"
-            >Install via npm</a
-          >
-          <a
-            href="https://github.com/popkinj/maplibre-transition"
-            target="_blank"
-            class="secondary"
-            >View on GitHub</a
-          >
+        <div id="hero-map" data-testid="hero-map"></div>
+
+        <div class="hero-copy">
+          <h1>Smooth Transitions for MapLibre GL JS</h1>
+          <p>
+            Animate any data-driven paint property, per feature, with easing,
+            delays and multi-stop breakpoints. One
+            <code class="mono">requestAnimationFrame</code> for the whole map —
+            thousands of features, one write each per frame.
+          </p>
+          <div class="cta">
+            <a href="playground.html" class="primary" data-testid="hero-cta"
+              >Open the playground</a
+            >
+            <a
+              href="https://github.com/popkinj/maplibre-transition"
+              class="secondary"
+              target="_blank"
+              rel="noopener"
+              >View on GitHub</a
+            >
+            <button
+              type="button"
+              class="btn ghost hero-play"
+              data-testid="hero-play"
+            >
+              Run the wave
+            </button>
+          </div>
+        </div>
+
+        <div class="hero-meter" aria-hidden="true">
+          <canvas class="frame-rail" data-testid="frame-rail"></canvas>
+          <div class="rail-legend">
+            <span data-testid="hero-live">0</span>
+            <span>animating</span>
+            <span class="spacer"></span>
+            <span class="metric" data-rail-fps data-testid="rail-fps">--</span>
+            <span>fps</span>
+            <span class="metric" data-rail-p95 data-testid="rail-p95">--</span>
+            <span>p95</span>
+          </div>
         </div>
       </section>
 
-      <h2 style="text-align: center; margin-bottom: 2rem; font-size: 2rem">
-        Interactive Examples
-      </h2>
+      <!-- ------------------------------------------------------------------
+           Cards
+           ------------------------------------------------------------------ -->
+      <div class="section-head">
+        <h2>Interactive Examples</h2>
+        <span class="rule"></span>
+        <span class="count">6</span>
+      </div>
 
       <div class="features-grid">
-        <a href="basic-transition.html" class="feature-card">
-          <div class="icon">→</div>
-          <h3>Basic Transition</h3>
+        <a href="rising-city.html" class="feature-card wide">
+          <span class="icon">fill-extrusion</span>
+          <h3>Rising City</h3>
           <p>
-            Learn the fundamentals with simple property transitions. Animate
-            opacity, radius, and other numeric properties with customizable
-            duration and easing.
+            Five thousand real Vancouver buildings grow from their footprints to
+            full height in 3D. Per-building staggered
+            <code class="mono">delay</code>, two channels each — height and
+            color — and a camera that orbits the skyline it just built.
           </p>
+          <code class="card-api">paint: { 'fill-extrusion-height': [null, h] }</code>
         </a>
 
-        <a href="color-animation.html" class="feature-card">
-          <div class="icon">🎨</div>
-          <h3>Color Animation</h3>
+        <a href="playground.html" class="feature-card">
+          <span class="icon">the call</span>
+          <h3>Playground</h3>
           <p>
-            Smooth color transitions using D3's color interpolation. Supports
-            RGB, HSL, and LAB color spaces for perceptually uniform transitions.
+            Every knob on the API, wired to a live map, printing the exact
+            <code class="mono">paint</code> object it is about to run. Nine
+            easings, side by side.
           </p>
+          <code class="card-api">map.transition(f, { duration, ease, delay, paint })</code>
         </a>
 
-        <a href="color-cycle.html" class="feature-card">
-          <div class="icon">🌈</div>
-          <h3>Color Cycling</h3>
+        <a href="color.html" class="feature-card">
+          <span class="icon">breakpoints</span>
+          <h3>Color &amp; Breakpoints</h3>
           <p>
-            Create color cycles with multiple breakpoints. Transition through a
-            spectrum of colors for eye-catching visual effects.
+            An editor whose UI <em>is</em> the value you pass. Add, remove and
+            reorder stops; three or more make a piecewise ramp.
           </p>
+          <code class="card-api">'circle-color': ['#26547c', '#e9c46a', '#f4703a']</code>
         </a>
 
-        <a href="easing-functions.html" class="feature-card">
-          <div class="icon">📈</div>
-          <h3>Easing Functions</h3>
+        <a href="stress.html" class="feature-card wide">
+          <span class="icon">scheduler</span>
+          <h3>Stress</h3>
           <p>
-            Explore all available easing functions from d3-ease. Compare linear,
-            elastic, bounce, and other easing types side by side.
+            Eight thousand points, three channels each — 24,000 animating
+            properties on one rAF. Turn up the stagger and watch
+            <code class="mono">setFeatureState</code> calls per frame collapse by
+            an order of magnitude, because a delayed transition costs nothing
+            until it starts.
           </p>
-        </a>
-
-        <a href="multiple-properties.html" class="feature-card">
-          <div class="icon">⚡</div>
-          <h3>Multiple Properties</h3>
-          <p>
-            Transition multiple style properties simultaneously. Create
-            coordinated visual effects with synchronized animations.
-          </p>
-        </a>
-
-        <a href="chained-transitions.html" class="feature-card">
-          <div class="icon">🔗</div>
-          <h3>Chained Transitions</h3>
-          <p>
-            Chain transitions using the onComplete callback. Build complex,
-            sequential animations that flow smoothly from one to the next.
-          </p>
+          <code class="card-api">map.transition(f, { delay: i * 0.4 })</code>
         </a>
 
         <a href="hover-effects.html" class="feature-card">
-          <div class="icon">👆</div>
+          <span class="icon">pointer</span>
           <h3>Hover Effects</h3>
           <p>
-            Interactive hover-triggered transitions. Add smooth visual feedback
-            when users interact with map features.
+            <code class="mono">delay</code> as a dwell threshold: leaving
+            supersedes the pending transition, so it never fires. No timers, no
+            saved values.
           </p>
+          <code class="card-api">map.transition(f, { delay: dwellMs })</code>
         </a>
 
-        <a href="multi-breakpoint.html" class="feature-card">
-          <div class="icon">📊</div>
-          <h3>Multi-Breakpoint</h3>
+        <a href="chained-transitions.html" class="feature-card">
+          <span class="icon">sequence</span>
+          <h3>Chained Transitions</h3>
           <p>
-            Advanced transitions with multiple breakpoints. Create complex
-            piecewise animations with 3 or more values.
+            Sequences built purely on <code class="mono">onComplete</code>. Stop
+            and re-trigger cancel by supersession — a superseded step never
+            re-arms.
           </p>
-        </a>
-
-        <a href="concurrent-effects.html" class="feature-card">
-          <div class="icon">🎛️</div>
-          <h3>Concurrent Effects</h3>
-          <p>
-            Run several property animations on a single feature at once — each
-            on its own clock. Radius, color, opacity, and stroke drift in and
-            out of phase, coexisting without cancelling each other.
-          </p>
-        </a>
-
-        <a href="rising-city.html" class="feature-card">
-          <div class="icon">🏙️</div>
-          <h3>Rising City</h3>
-          <p>
-            Watch 450 real downtown Vancouver buildings grow from their
-            footprints to full height in 3D — staggered, per-building
-            <code>fill-extrusion-height</code> transitions with varied easings.
-          </p>
+          <code class="card-api">map.transition(f, { onComplete: next })</code>
         </a>
       </div>
 
-      <section
-        style="
-          margin-top: 4rem;
-          padding: 3rem;
-          background: var(--surface);
-          border-radius: 12px;
-        "
-      >
-        <h2 style="text-align: center; margin-bottom: 2rem; font-size: 2rem">
-          Getting Started
-        </h2>
+      <!-- ------------------------------------------------------------------
+           Getting started
+           ------------------------------------------------------------------ -->
+      <section class="start">
+        <h2>Getting Started</h2>
 
-        <div style="max-width: 800px; margin: 0 auto">
-          <h3 style="margin-bottom: 1rem">Installation</h3>
-          <pre
-            class="code-block"
-          ><code><span class="code-cmd">npm install</span> maplibre-transition</code></pre>
+        <h3>Installation</h3>
+        <pre class="code-block"><code><span class="code-cmd">npm install</span> maplibre-transition</code></pre>
 
-          <h3 style="margin-bottom: 1rem">Quick Example</h3>
-          <pre
-            class="code-block"
-          ><code><span class="code-keyword">import</span> maplibregl <span class="code-keyword">from</span> <span class="code-string">'maplibre-gl'</span>;
+        <h3>Quick Example</h3>
+        <pre class="code-block"><code><span class="code-keyword">import</span> maplibregl <span class="code-keyword">from</span> <span class="code-string">'maplibre-gl'</span>;
 <span class="code-keyword">import</span> MaplibreTransition <span class="code-keyword">from</span> <span class="code-string">'maplibre-transition'</span>;
 
 <span class="code-keyword">const</span> map = <span class="code-keyword">new</span> maplibregl.<span class="code-function">Map</span>({
   <span class="code-property">container</span>: <span class="code-string">'map'</span>,
   <span class="code-property">style</span>: <span class="code-string">'https://demotiles.maplibre.org/style.json'</span>,
-  <span class="code-property">center</span>: [<span class="code-number">0</span>, <span class="code-number">0</span>],
-  <span class="code-property">zoom</span>: <span class="code-number">2</span>
+  <span class="code-property">center</span>: [<span class="code-number">-123.12</span>, <span class="code-number">49.28</span>],
+  <span class="code-property">zoom</span>: <span class="code-number">11</span>
 });
 
-<span class="code-comment">// Initialize the plugin</span>
+<span class="code-comment">// Teach the map to transition. Adds map.transition().</span>
 MaplibreTransition.<span class="code-function">init</span>(map);
 
-<span class="code-comment">// Use transitions</span>
-map.<span class="code-function">transition</span>(feature, {
-  <span class="code-property">duration</span>: <span class="code-number">1000</span>,
-  <span class="code-property">ease</span>: <span class="code-string">'elastic'</span>,
-  <span class="code-property">paint</span>: {
-    <span class="code-string">'circle-radius'</span>: [<span class="code-number">8</span>, <span class="code-number">20</span>],
-    <span class="code-string">'circle-color'</span>: [<span class="code-string">'#667eea'</span>, <span class="code-string">'#64b5f6'</span>]
-  }
+map.<span class="code-function">on</span>(<span class="code-string">'click'</span>, <span class="code-string">'cities-layer'</span>, (e) =&gt; {
+  map.<span class="code-function">transition</span>(e.features[<span class="code-number">0</span>], {
+    <span class="code-property">duration</span>: <span class="code-number">900</span>,
+    <span class="code-property">ease</span>: <span class="code-string">'cubic'</span>,
+    <span class="code-property">delay</span>: <span class="code-number">0</span>,
+    <span class="code-property">paint</span>: {
+      <span class="code-comment">// null = "start from wherever this feature is right now"</span>
+      <span class="code-string">'circle-radius'</span>: [<span class="code-keyword">null</span>, <span class="code-number">28</span>],
+      <span class="code-string">'circle-color'</span>: [<span class="code-keyword">null</span>, <span class="code-string">'#f4703a'</span>]
+    },
+    <span class="code-property">onComplete</span>: () =&gt; <span class="code-function">console</span>.log(<span class="code-string">'landed'</span>)
+  });
 });</code></pre>
+
+        <div class="note">
+          <b>Paint ownership.</b> Once you have transitioned a
+          <code>(layer, paint-property)</code> pair, the plugin rewrites it to
+          <code>["coalesce", ["feature-state", …], fallback]</code> and owns it.
+          Animate it with <code>map.transition()</code> from then on — never
+          <code>map.setPaintProperty()</code>.
         </div>
       </section>
     </main>
 
-    <footer>
-      <p>
-        Created by
-        <a href="https://github.com/popkinj" target="_blank">Jamie Popkin</a> |
-        <a href="https://github.com/popkinj/maplibre-transition" target="_blank"
-          >View Source on GitHub</a
-        >
-        | MIT License
-      </p>
-    </footer>
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
   </body>
 </html>

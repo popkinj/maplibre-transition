@@ -3,51 +3,158 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chained Transitions - MapLibre Transition</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
-  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-  <script type="module" crossorigin src="/maplibre-transition/assets/chained-transitions-DDPVgH5-.js"></script>
-  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-rmm1VzeP.js">
-  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-6SEu6TPq.js">
-  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+  <title>Chained Transitions — maplibre-transition</title>
+  <script>
+    (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+    if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+    var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+  <style>
+    /* `hidden` must beat the .btn display:block in shared.css. */
+    [hidden] { display: none !important; }
+
+    /* shared.css gives .panel-head `background: inherit`, i.e. the translucent --glass;
+       this panel scrolls (the timeline is tall), and scrolled content shows straight
+       through the sticky rail. Opaque surface here until shared.css is fixed. */
+    .panel-head { background: var(--surface); }
+
+    #map { cursor: crosshair; }
+
+    /* The chain timeline: one row per map.transition() call, in order. */
+    .timeline {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .timeline .step {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.35rem 0.9rem 0.35rem 0.5rem;
+      border-left: 3px solid transparent;
+      border-top: 1px solid var(--hairline);
+      color: var(--ink-muted);
+      scroll-margin: 0.5rem;
+    }
+
+    .timeline .step:first-child { border-top: none; }
+
+    .timeline .step[data-state="running"] {
+      border-left-color: var(--ramp-3);
+      background: linear-gradient(var(--grid), var(--grid));
+      color: var(--ink);
+    }
+
+    .timeline .step[data-state="done"] { border-left-color: var(--ok); }
+
+    .step-idx {
+      flex: 0 0 1.1rem;
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      line-height: 1.4;
+      text-align: right;
+      opacity: 0.75;
+    }
+
+    .step-body { min-width: 0; flex: 1; }
+
+    .step-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .step-name {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: -0.01em;
+    }
+
+    .step-ease {
+      font-family: var(--font-mono);
+      font-size: 0.64rem;
+      color: var(--ink-muted);
+      white-space: nowrap;
+    }
+
+    .step-paint {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.63rem;
+      line-height: 1.45;
+      color: var(--ink-muted);
+      word-break: break-word;
+    }
+
+    .timeline .step[data-state="running"] .step-paint { color: var(--ink); }
+
+    .step-paint .to { color: var(--ramp-3); }
+    .timeline .step[data-state="done"] .step-paint .to { color: var(--ok); }
+  </style>
+  <script type="module" crossorigin src="/maplibre-transition/assets/chained-transitions-C2nxHYJc.js"></script>
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
+  <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-B9TBtVAP.js">
+  <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
 </head>
 <body>
-  <header>
-    <div class="header-content">
-      <a href="./" class="logo">
-        <div class="logo-icon">T</div>
-        <h1>MapLibre Transition</h1>
-      </a>
-      <nav>
-        <a href="./">Examples</a>
-        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
-      </nav>
-    </div>
-  </header>
-
   <main>
     <div class="example-container">
       <div class="map-container">
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Chained Transitions</h2>
-          <p>Select a chain type, then click on a Canadian city to see sequential animations.</p>
+          <p>
+            Every step fires from the previous step's <span class="paint-prop">onComplete</span>.
+            No timers. Click a city, or run the chain on the selected one.
+          </p>
 
           <div class="control-group">
-            <label>Chain Type</label>
+            <label><span class="paint-prop">chain</span></label>
             <select id="chain-type" data-testid="chain-type-select">
-              <option value="simple">Simple Chain (2 steps)</option>
-              <option value="complex">Complex Chain (4 steps)</option>
-              <option value="loop">Continuous Loop</option>
+              <option value="simple">simple — 2 steps</option>
+              <option value="complex">complex — 4 steps</option>
+              <option value="loop">loop — repeats until stopped</option>
             </select>
           </div>
 
           <div class="control-group">
-            <label>Step Duration: <span class="value-display" id="duration-value">800ms</span></label>
+            <label>
+              <span class="paint-prop">duration</span>
+              <span class="value-display" id="duration-value" data-testid="duration-value">800ms</span>
+            </label>
             <input type="range" id="duration" data-testid="duration-slider" min="300" max="2000" value="800" step="100">
           </div>
 
-          <button id="stop" data-testid="stop-button" style="background: var(--secondary-color); display: none;">Stop Loop</button>
+          <div class="control-group">
+            <button id="run" class="btn" data-testid="run-button">Run chain</button>
+            <button id="stop" class="btn ghost" data-testid="stop-button" hidden style="margin-top: 0.4rem;">Stop loop</button>
+          </div>
+
+          <div class="readout">
+            <div class="row">
+              <span>target</span>
+              <span id="target-name" data-testid="target-name">Ottawa</span>
+            </div>
+            <div class="row">
+              <span>status</span>
+              <span id="status" data-testid="chain-status">idle</span>
+            </div>
+            <div class="row">
+              <span>laps</span>
+              <span id="laps" data-testid="lap-count">0</span>
+            </div>
+            <div class="row">
+              <span>animating</span>
+              <span id="active-count" data-testid="active-count">0</span>
+            </div>
+          </div>
+
+          <ol class="timeline" id="timeline" data-testid="chain-timeline"></ol>
         </div>
       </div>
     </div>

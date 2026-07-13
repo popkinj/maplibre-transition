@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Playground — maplibre-transition</title>
+
+    <!-- Theme, before first paint. Must stay a plain, non-deferred script. -->
+    <script>
+      (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+      if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+      var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+    </script>
+
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+
+    <style>
+      /* Page-scoped only. Every colour still goes through a token. */
+
+      /* One paint property: [x] name .......... target */
+      .prop-row {
+        display: grid;
+        grid-template-columns: 14px 1fr 70px;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.16rem 0;
+      }
+      .prop-row .paint-prop {
+        font-size: 0.7rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+      }
+      .prop-row.off .paint-prop {
+        color: var(--ink-muted);
+      }
+      .prop-row input[type="number"] {
+        padding: 0.16rem 0.3rem;
+        font-size: 0.7rem;
+        text-align: right;
+      }
+      .prop-row input[type="color"] {
+        height: 22px;
+        padding: 1px;
+      }
+
+      /* The easing curve. Overshoot (elastic, bounce) is drawn, not clipped. */
+      .curve {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin-top: 0.55rem;
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-sm);
+      }
+      .curve-unit {
+        stroke: var(--grid);
+        stroke-width: 1;
+      }
+      .curve-linear {
+        stroke: var(--hairline);
+        stroke-width: 1;
+        stroke-dasharray: 3 3;
+        fill: none;
+      }
+      /* The raw d3 curve, where the engine's clamp cuts it off (elastic only). */
+      .curve-ghost {
+        fill: none;
+        stroke: var(--hot);
+        stroke-width: 1.25;
+        stroke-dasharray: 2 3;
+        opacity: 0.75;
+      }
+      .curve-line {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .curve-dot {
+        fill: var(--hot);
+        opacity: 0;
+      }
+      .curve-dot.live {
+        opacity: 1;
+      }
+
+      /* The call you are about to make — pinned to the foot of the instrument so
+         it stays in view while you turn the knobs above it.
+         It is a flex row OUTSIDE the scrollport, not an overlay: a sticky bar
+         floating over a scroll container covers whatever scrolls under it, and
+         a control parked beneath it cannot be clicked. So the card becomes
+         [rail | scrolling knobs | the call], each with its own box. */
+      .controls {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* .panel-scroll does the scrolling now */
+      }
+      .panel-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .call-bar {
+        flex: 0 0 auto;
+        background: var(--surface);
+        border-top: 1px solid var(--hairline);
+      }
+      .call-bar .control-group:first-child {
+        border-top: none;
+      }
+
+      .controls .code-block {
+        margin-top: 0.15rem;
+        padding: 0.55rem 0.65rem;
+        font-size: 0.67rem;
+        line-height: 1.5;
+        border-radius: var(--radius-sm);
+        box-shadow: none;
+        white-space: pre;
+        overflow-x: auto;
+      }
+
+      .btn-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.4rem;
+      }
+      .btn-row .btn {
+        width: 100%;
+      }
+
+      /* Below 900px the card un-floats and the page itself scrolls. */
+      @media (max-width: 900px) {
+        .controls {
+          display: block;
+          overflow: visible;
+        }
+        .panel-scroll {
+          overflow: visible;
+        }
+      }
+
+      .hint {
+        margin-top: 0.4rem;
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        color: var(--ink-muted);
+        min-height: 1em;
+      }
+      .hint.warn {
+        color: var(--hot);
+      }
+
+      /* Nine cities, nine easings, one race. Two columns, so it costs 5 rows. */
+      .race-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.1rem 0.6rem;
+        margin-top: 0.1rem;
+      }
+      .race-grid .row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.3rem;
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        color: var(--ink-muted);
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      .race-grid .row:hover {
+        color: var(--ink);
+      }
+      .race-grid .row > span:last-child {
+        color: var(--accent);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .race-grid .row.is-active > span:first-child {
+        color: var(--hot);
+        font-weight: 600;
+      }
+
+      /* Live feature state. Rows appear as the plugin writes them. */
+      .state-empty {
+        color: var(--ink-muted);
+        font-style: italic;
+      }
+    </style>
+    <script type="module" crossorigin src="/maplibre-transition/assets/playground-CWnqmfga.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-B9TBtVAP.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
+  </head>
+  <body>
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+
+          <div class="controls">
+            <!-- chrome.js inserts .panel-head (the frame rail) here, above the
+                 scrollport. The knobs scroll; the rail and the call bar do not. -->
+            <div class="panel-scroll">
+            <h2>Playground</h2>
+            <!-- chrome.js inserts the kicker here -->
+            <p>
+              Every <code>TransitionOptions</code> field, on one panel. Turn the
+              knobs, watch the call at the foot of the card change, then click a
+              city to run it.
+            </p>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span>paint</span>
+                <span class="value-display" data-testid="paint-count">3 / 5</span>
+              </div>
+              <div id="props"></div>
+            </div>
+
+            <div class="control-group">
+              <label for="duration">
+                <span class="paint-prop">duration</span>
+                <span class="value-display" data-testid="duration-value">1200ms</span>
+              </label>
+              <input
+                type="range"
+                id="duration"
+                data-testid="duration-slider"
+                min="100"
+                max="4000"
+                step="100"
+                value="1200"
+              />
+
+              <label for="delay" style="margin-top: 0.55rem">
+                <span class="paint-prop">delay</span>
+                <span class="value-display" data-testid="delay-value">0ms</span>
+              </label>
+              <input
+                type="range"
+                id="delay"
+                data-testid="delay-slider"
+                min="0"
+                max="3000"
+                step="50"
+                value="0"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="easing">
+                <span class="paint-prop">ease</span>
+                <span class="value-display" data-testid="ease-value">cubic</span>
+              </label>
+              <select id="easing" data-testid="easing-select">
+                <option value="linear">linear</option>
+                <option value="quad">quad</option>
+                <option value="cubic" selected>cubic</option>
+                <option value="poly">poly</option>
+                <option value="sin">sin</option>
+                <option value="exp">exp</option>
+                <option value="circle">circle</option>
+                <option value="elastic">elastic</option>
+                <option value="bounce">bounce</option>
+              </select>
+
+              <svg
+                class="curve"
+                data-testid="easing-curve"
+                viewBox="0 0 260 88"
+                preserveAspectRatio="xMidYMid meet"
+                role="img"
+                aria-label="Easing curve"
+              >
+                <line class="curve-unit" data-unit="0" x1="0" y1="0" x2="260" y2="0" />
+                <line class="curve-unit" data-unit="1" x1="0" y1="0" x2="260" y2="0" />
+                <path class="curve-linear" data-testid="curve-linear" d="" />
+                <path class="curve-ghost" data-testid="curve-ghost" d="" />
+                <path class="curve-line" data-testid="easing-path" d="" />
+                <circle class="curve-dot" data-testid="easing-dot" r="3.5" cx="-10" cy="-10" />
+              </svg>
+              <div class="hint" data-testid="ease-note"></div>
+            </div>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span>the race</span>
+                <span class="value-display">9 easings · 9 cities</span>
+              </div>
+              <div class="race-grid" data-testid="race-legend"></div>
+            </div>
+
+            <div class="readout">
+              <div class="row">
+                <span>feature</span>
+                <span data-testid="readout-city">—</span>
+              </div>
+              <div class="row">
+                <span>transitions</span>
+                <span data-testid="transition-count">0</span>
+              </div>
+              <div class="row">
+                <span>onStart / onComplete</span>
+                <span data-testid="callback-count">0 / 0</span>
+              </div>
+            </div>
+
+            <div class="readout" data-testid="readout-state">
+              <div class="row state-empty"><span>feature-state</span><span>live</span></div>
+            </div>
+            </div>
+            <!-- /.panel-scroll -->
+
+            <!-- Pinned to the foot of the card: what you are about to call, and
+                 the buttons that call it. -->
+            <div class="call-bar">
+              <div class="control-group">
+                <div class="group-label">
+                  <span>the call</span>
+                  <span class="value-display" data-testid="target-count">—</span>
+                </div>
+                <pre class="code-block" data-testid="paint-preview"></pre>
+              </div>
+
+              <div class="control-group">
+                <div class="btn-row">
+                  <button
+                    type="button"
+                    class="btn"
+                    id="compare"
+                    data-testid="compare-easings"
+                  >
+                    Compare all 9 easings
+                  </button>
+                  <button
+                    type="button"
+                    class="btn ghost"
+                    id="reset"
+                    data-testid="reset-btn"
+                  >
+                    Reset
+                  </button>
+                </div>
+                <div class="hint" data-testid="hint">
+                  Nine cities, nine easings, one call each.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </body>
+</html>

@@ -3,93 +3,187 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rising City - MapLibre Transition</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
-    />
+    <title>Rising City — maplibre-transition</title>
+
+    <!-- Theme, before first paint. Must stay a plain, non-module, non-defer script,
+         and must sit above the stylesheet. See scripts/theme.js THEME_HEAD_SNIPPET. -->
+    <script>
+      (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+      if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+      var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+    </script>
+
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+
     <style>
-      /* This demo reads better on a dark map, so tint the floating panel too. */
-      .rising #map {
-        background: #0b0f1a;
-      }
-      .rising .controls {
-        background: rgba(17, 22, 37, 0.92);
-        color: #e6ecff;
-      }
-      .rising .controls h2 {
-        color: #ffffff;
-      }
-      .rising .controls p,
-      .rising .control-group label {
-        color: #c3ccf0;
-      }
-      .rising .control-group select {
-        background: #0f1424;
-        color: #e6ecff;
-        border-color: #2a3350;
-      }
-      .rising .readout {
-        margin-top: 1.25rem;
-        padding: 0.85rem 1rem;
-        background: rgba(255, 255, 255, 0.06);
-        border-radius: 6px;
-        font-size: 0.85rem;
-      }
-      .rising .readout strong {
-        color: #ffffff;
-      }
-      .rising .credit {
-        margin-top: 0.75rem;
+      /* Page-local chrome only. Every colour still goes through a token. */
+      .loading {
+        position: absolute;
+        left: 0.85rem;
+        bottom: 1.9rem;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.7rem;
+        font-family: var(--font-mono);
         font-size: 0.72rem;
-        opacity: 0.6;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+        background: var(--glass);
+        border: 1px solid var(--hairline);
+        border-radius: 999px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
       }
-      .rising .credit a {
-        color: inherit;
+
+      .loading[hidden] {
+        display: none;
+      }
+
+      .loading .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        animation: pulse 1.1s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.25;
+          transform: scale(0.8);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.15);
+        }
+      }
+
+      /* The height→colour ramp, printed as a legend under the readout. */
+      .ramp-legend {
+        padding: 0.7rem 0.9rem;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .ramp-bar {
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          var(--ramp-0) 0%,
+          var(--ramp-1) 35%,
+          var(--ramp-2) 62%,
+          var(--ramp-3) 100%
+        );
+      }
+
+      .ramp-scale {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.3rem;
+        font-family: var(--font-mono);
+        font-size: 0.64rem;
+        color: var(--ink-muted);
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 0.4rem;
+      }
+
+      .btn-row .btn {
+        flex: 1;
       }
     </style>
-    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-    <script type="module" crossorigin src="/maplibre-transition/assets/rising-city-DVNxzdSf.js"></script>
-    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/index.esm-rmm1VzeP.js">
-    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/shared-CSdqQV0R.css">
+    <script type="module" crossorigin src="/maplibre-transition/assets/rising-city-DqB4xKdV.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
   </head>
-  <body class="rising">
-    <header>
-      <div class="header-content">
-        <a href="./" class="logo">
-          <div class="logo-icon">T</div>
-          <h1>MapLibre Transition</h1>
-        </a>
-        <nav>
-          <a href="./">Examples</a>
-          <a
-            href="https://github.com/popkinj/maplibre-transition"
-            target="_blank"
-            >GitHub</a
-          >
-        </nav>
-      </div>
-    </header>
-
+  <body>
     <main>
       <div class="example-container">
         <div class="map-container">
           <div id="map" data-testid="map-container"></div>
+
+          <div class="loading" id="loading" data-testid="loading">
+            <span class="dot" aria-hidden="true"></span>
+            <span id="loading-text" data-testid="loading-text">loading buildings…</span>
+          </div>
+
           <div class="controls">
             <h2>Rising City</h2>
             <p>
-              450 real downtown Vancouver buildings grow from their footprints to
-              full height by animating <code>fill-extrusion-height</code> — one
-              transition per building, staggered so the skyline sweeps up.
+              5,000 OSM buildings, two feature-state channels each:
+              <span class="paint-prop">fill-extrusion-height</span> lifts,
+              <span class="paint-prop">fill-extrusion-color</span> ignites. Staggered,
+              so the skyline sweeps.
             </p>
 
+            <!-- The live numbers sit ABOVE the controls: the panel is taller than the
+                 map on short viewports and scrolls, and `channels 10,000` is the
+                 headline of this page — it must never be the thing below the fold. -->
+            <div class="readout">
+              <div class="row">
+                <span>channels</span>
+                <span id="channel-count" data-testid="channel-count">0</span>
+              </div>
+              <div class="row">
+                <span>animating</span>
+                <span id="active-count" data-testid="active-count">0</span>
+              </div>
+              <div class="row">
+                <span>camera</span>
+                <span id="camera-state" data-testid="camera-state">idle</span>
+              </div>
+            </div>
+
             <div class="control-group">
-              <button id="grow-btn" data-testid="grow-btn">Grow city</button>
+              <div class="btn-row">
+                <button
+                  id="grow-btn"
+                  class="btn"
+                  data-testid="grow-btn"
+                  aria-pressed="false"
+                >
+                  Grow city
+                </button>
+                <button
+                  id="orbit-btn"
+                  class="btn ghost"
+                  data-testid="orbit-btn"
+                  aria-pressed="false"
+                  title="Toggle the camera orbit"
+                >
+                  Orbit
+                </button>
+              </div>
             </div>
 
             <div class="control-group">
               <label
-                >Max stagger:
+                >Buildings
+                <span class="value-display" id="building-count" data-testid="building-count"
+                  >0</span
+                ></label
+              >
+              <input
+                type="range"
+                id="buildings"
+                data-testid="buildings-slider"
+                min="0"
+                max="3"
+                value="3"
+                step="1"
+              />
+            </div>
+
+            <div class="control-group">
+              <label
+                >Max stagger
                 <span class="value-display" id="stagger-value">1600ms</span></label
               >
               <input
@@ -105,7 +199,7 @@
 
             <div class="control-group">
               <label
-                >Duration:
+                >Duration
                 <span class="value-display" id="duration-value">1400ms</span></label
               >
               <input
@@ -120,7 +214,7 @@
             </div>
 
             <div class="control-group">
-              <label>Rise pattern</label>
+              <label for="pattern">Rise pattern</label>
               <select id="pattern" data-testid="pattern-select">
                 <option value="scatter" selected>Random scatter</option>
                 <option value="wave">Radial wave from centre</option>
@@ -129,7 +223,7 @@
             </div>
 
             <div class="control-group">
-              <label>Effect</label>
+              <label for="effect">Effect</label>
               <select id="effect" data-testid="effect-select">
                 <option value="mix" selected>Random mix</option>
                 <option value="elastic">Elastic pop</option>
@@ -138,19 +232,18 @@
               </select>
             </div>
 
-            <div class="readout">
-              <div>
-                <strong>Buildings:</strong>
-                <span id="building-count" data-testid="building-count">0</span>
-              </div>
-              <div style="margin-top: 0.3rem">
-                <strong>Animating:</strong>
-                <span id="active-count" data-testid="active-count">0</span>
+            <div class="ramp-legend">
+              <div class="ramp-bar" aria-hidden="true"></div>
+              <div class="ramp-scale">
+                <span>0m</span>
+                <span>fill-extrusion-color</span>
+                <span>200m</span>
               </div>
             </div>
 
             <div class="credit">
-              Building data © OpenStreetMap contributors (ODbL).
+              Buildings © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>
+              contributors (ODbL).
             </div>
           </div>
         </div>

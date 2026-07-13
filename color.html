@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color &amp; Breakpoints — maplibre-transition</title>
+    <script>
+      (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+      if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+      var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+
+    <style>
+      /* ----------------------------------------------------------------
+         Page-local: the breakpoint editor. Tokens only, no literal colors.
+         ---------------------------------------------------------------- */
+
+      /* The interpolation preview. A CSS linear-gradient interpolates in sRGB,
+         which is exactly what d3-interpolate's interpolateRgb does — so this
+         strip is a faithful preview of the transition, not an approximation. */
+      .ramp {
+        height: 16px;
+        border: 1px solid var(--hairline);
+        border-radius: 3px;
+        margin-bottom: 0.55rem;
+      }
+
+      .stop-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .stop-row {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .stop-row .stop-idx {
+        width: 1.1rem;
+        flex: 0 0 auto;
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        color: var(--ink-muted);
+      }
+
+      .stop-row input[type="color"] {
+        flex: 1 1 auto;
+        height: 26px;
+        min-width: 0;
+      }
+
+      .stop-row input[type="number"] {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 0.28rem 0.4rem;
+      }
+
+      .stop-row .stop-hex {
+        flex: 0 0 auto;
+        width: 4.5rem;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--ink);
+      }
+
+      /* shared.css makes every <button> inside .control-group a full-width
+         accent button. These are icons, and the presets are chips. */
+      .controls .control-group .icon-btn {
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        line-height: 1;
+        color: var(--ink-muted);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .controls .control-group .icon-btn:hover:not(:disabled) {
+        color: var(--ink);
+        background: var(--surface-2);
+        filter: none;
+        transform: none;
+      }
+
+      .controls .control-group .icon-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      .controls .control-group .chip {
+        display: inline-flex;
+        width: auto;
+        padding: 0.26rem 0.5rem;
+        font-family: var(--font-mono);
+        font-weight: 400;
+        font-size: 0.7rem;
+        color: var(--ink-muted);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        border-radius: 999px;
+      }
+
+      .controls .control-group .chip:hover {
+        color: var(--ink);
+        background: var(--surface-2);
+        filter: none;
+      }
+
+      .controls .control-group .chip[aria-pressed="true"] {
+        color: var(--accent-ink);
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .stops-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-top: 0.45rem;
+      }
+
+      .controls .control-group .add-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        width: auto;
+        padding: 0.24rem 0.55rem;
+        font-family: var(--font-mono);
+        font-weight: 400;
+        font-size: 0.7rem;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-sm);
+      }
+
+      .controls .control-group .add-btn:hover:not(:disabled) {
+        background: var(--surface-2);
+        filter: none;
+      }
+
+      .stop-hint {
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        color: var(--ink-muted);
+      }
+
+      /* The live call. It is the same array the editor holds — that is the point. */
+      .controls .code-block {
+        padding: 0.6rem 0.7rem;
+        font-size: 0.68rem;
+        line-height: 1.55;
+        border-radius: var(--radius-sm);
+        box-shadow: none;
+        white-space: pre;
+      }
+    </style>
+    <script type="module" crossorigin src="/maplibre-transition/assets/color-Cho-J9ac.js"></script>
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
+    <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/canadian-cities-B9TBtVAP.js">
+    <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
+  </head>
+
+  <body>
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+
+          <div class="controls">
+            <h2>Color &amp; Breakpoints</h2>
+            <p>
+              An ordered list of 2–6 stops <em>is</em> the API. Click a province to
+              run it through <span class="paint-prop">fill-color</span>; click a
+              capital to run <span class="paint-prop">circle-color</span> and
+              <span class="paint-prop">circle-radius</span> together.
+            </p>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span>Presets</span>
+                <span class="value-display" data-testid="preset-name">—</span>
+              </div>
+              <div class="chip-row">
+                <button class="chip" type="button" data-testid="preset-sunset" data-preset="sunset" aria-pressed="false">sunset</button>
+                <button class="chip" type="button" data-testid="preset-ocean" data-preset="ocean" aria-pressed="false">ocean</button>
+                <button class="chip" type="button" data-testid="preset-traffic" data-preset="traffic" aria-pressed="false">traffic</button>
+                <button class="chip" type="button" data-testid="preset-pulse" data-preset="pulse" aria-pressed="false">pulse</button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span class="paint-prop">fill-color</span>
+                <span class="value-display" data-testid="color-count">4 stops</span>
+              </div>
+              <div class="ramp" data-testid="ramp-preview"></div>
+              <div class="stop-list" data-testid="color-stops"></div>
+              <div class="stops-foot">
+                <button class="add-btn" type="button" data-testid="color-add">+ stop</button>
+                <span class="stop-hint">2–6</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span class="paint-prop">circle-radius</span>
+                <span class="value-display" data-testid="number-count">4 stops</span>
+              </div>
+              <div class="stop-list" data-testid="number-stops"></div>
+              <div class="stops-foot">
+                <button class="add-btn" type="button" data-testid="number-add">+ stop</button>
+                <span class="stop-hint">2–6 · px</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label>
+                <span>Duration</span>
+                <span class="value-display" data-testid="duration-value">2400ms</span>
+              </label>
+              <input
+                type="range"
+                data-testid="duration-slider"
+                id="duration"
+                min="400"
+                max="6000"
+                step="100"
+                value="2400"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="easing"><span>Easing</span></label>
+              <select id="easing" data-testid="easing-select">
+                <option value="linear">linear</option>
+                <option value="quad">quad</option>
+                <option value="cubic" selected>cubic</option>
+                <option value="sin">sin</option>
+                <option value="elastic">elastic</option>
+                <option value="bounce">bounce</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <div class="group-label"><span>The call</span></div>
+              <pre class="code-block" data-testid="paint-code"><code><span class="code-function">map</span>.<span class="code-function">transition</span>(f, {
+  <span class="code-property">paint</span>: {
+    <span class="code-string">"fill-color"</span>: <span data-testid="color-array" class="code-string">[]</span>,
+    <span class="code-string">"circle-radius"</span>: <span data-testid="number-array" class="code-number">[]</span>
+  }
+})</code></pre>
+            </div>
+
+            <div class="control-group">
+              <button class="btn ghost" type="button" data-testid="reset-btn">Reset to idle</button>
+            </div>
+
+            <div class="readout">
+              <div class="row"><span>animating</span><span data-testid="active-count">0</span></div>
+              <div class="row"><span>painted</span><span data-testid="painted-count">0</span></div>
+              <div class="row"><span>settled (onComplete)</span><span data-testid="settled-count">0</span></div>
+              <div class="row"><span>last</span><span data-testid="last-target">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </body>
+</html>
