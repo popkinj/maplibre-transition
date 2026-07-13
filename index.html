@@ -159,15 +159,22 @@
         font-weight: 600;
       }
 
-      /* Reduced motion: no autoplay. The button is the entry point. */
-      .hero-play {
-        display: none;
+      /* The hero autoplays twice, then hands control to this button. Under
+         reduced motion there is no autoplay and the button is live immediately.
+         Shared .btn is display:block/width:100% for the sidebar control panels,
+         so it has to be pulled back inline to sit in the CTA row. */
+      .hero .cta .hero-play {
+        display: inline-block;
+        width: auto;
+        padding: 0.6rem 1.1rem;
+        font-size: 0.9rem;
       }
 
-      @media (prefers-reduced-motion: reduce) {
-        .hero-play {
-          display: inline-block;
-        }
+      .hero .cta .hero-play[disabled] {
+        opacity: 0.4;
+        cursor: default;
+        filter: none;
+        transform: none;
       }
 
       /* ----------------------------------------------------------------
@@ -365,7 +372,7 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="/maplibre-transition/assets/main-CpCpRrrm.js"></script>
+    <script type="module" crossorigin src="/maplibre-transition/assets/main-Cv2HBrX1.js"></script>
     <link rel="modulepreload" crossorigin href="/maplibre-transition/assets/perf-BTItUmM9.js">
     <link rel="stylesheet" crossorigin href="/maplibre-transition/assets/perf-D0wiqScW.css">
   </head>
@@ -400,6 +407,7 @@
               type="button"
               class="btn ghost hero-play"
               data-testid="hero-play"
+              disabled
             >
               Run the wave
             </button>
