@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-13
+
+### A note on versioning
+
+Everything below first shipped as `1.2.0` / `1.2.1`. That was a mistake. The rewrite
+carries breaking changes — `onStart` timing, `onComplete` on superseded calls, and the
+sampler objects exposed on `map.transition.transitions` — and breaking changes require a
+major bump under semver.
+
+`2.0.0` is that same engine, correctly versioned. There is no behavioural difference
+between `1.2.1` and `2.0.0`; the version number is the fix. `1.2.1` is deprecated on npm
+and points here. `1.2.0` was tagged but never published to npm at all.
+
+If you are coming from `1.0.x` or `1.1.x` — and if you have `^1.0.0` in your
+`package.json`, you are, because `1.0.x` was the published version for seven months —
+read **Changed (breaking)** below before upgrading.
+
 ### Engine rewrite: the scheduler
 
 The animation core (`src/index.ts`) was rewritten around a single, global
@@ -68,7 +85,10 @@ Measured in headless chromium on the 2000-point `bulk` source in
   `map.transition()` from `onStart`/`onComplete` (i.e. chaining) can no longer
   corrupt the scheduler's arrays mid-iteration.
 
-### Changed (deliberate semantic changes)
+### Changed (breaking)
+
+These are deliberate corrections, but they change behaviour. They are the reason this is
+a major release.
 
 - **`onStart` timing.** It now fires synchronously *only* when `delay === 0`.
   With a delay, it fires on the frame the transition actually begins - previously

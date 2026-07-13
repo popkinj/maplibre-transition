@@ -48,6 +48,11 @@ const quantile = (xs: number[], q: number) => {
   return s[Math.min(s.length - 1, Math.floor(q * s.length))];
 };
 
+// Measures frame time and per-frame engine cost. Running these in parallel with
+// each other just measures how loaded the box is (same reason stress.spec.ts is
+// serial).
+test.describe.configure({ mode: 'default' });
+
 test.describe('Engine performance under mass trigger', () => {
   test.beforeEach(async ({ page, browserName }: { page: Page; browserName: string }) => {
     test.skip(browserName !== 'chromium', 'Headless WebGL is unreliable outside chromium');
@@ -130,10 +135,19 @@ test.describe('Engine performance under mass trigger', () => {
       await sleep(300);
 
       // --- under load ---------------------------------------------------------
-      // Long enough that all 2000 are still animating when the sampling window
-      // closes (~3.5s in on software GL).
+      // Every one of the 2000 must still be animating when the sampling window
+      // closes, or the per-frame averages below get diluted by idle frames.
+      //
+      // The window is 40 FRAMES, not a fixed wall time, so its duration is
+      // whatever the box gives us: ~66ms/frame locally (~2.6s), but ~250ms/frame
+      // on a CI runner's software GL (~10s). A hardcoded duration cannot be right
+      // on both, so size it from the baseline we just measured, with 3x headroom.
+      const sortedBase = [...baselineFrames].sort((a, b) => a - b);
+      const baseMedian = sortedBase[Math.floor(sortedBase.length / 2)] || 16;
+      const duration = Math.max(6000, Math.ceil(40 * baseMedian * 3));
+
       h.bulkTransition(2000, {
-        duration: 6000,
+        duration,
         ease: 'cubic',
         paint: {
           'circle-radius': [3, 10],
@@ -151,6 +165,18 @@ test.describe('Engine performance under mass trigger', () => {
       const stillLive = h.getTransitionCount(); // must still be animating
 
       map.setFeatureState = origSFS;
+
+      // `duration` may now be far longer than we want to sit here waiting for, so
+      // supersede it with an instant call rather than letting it run its course.
+      // A later call on the same properties replaces the sampler and completes in
+      // a frame or two, which drains the Set.
+      h.bulkTransition(2000, {
+        duration: 1,
+        paint: {
+          'circle-radius': [3, 3],
+          'circle-color': ['#3366cc', '#3366cc'],
+        },
+      });
       for (let i = 0; i < 500 && h.getTransitionCount() > 0; i++) await sleep(25);
 
       const frames = loadedFrames.length;
@@ -159,6 +185,7 @@ test.describe('Engine performance under mass trigger', () => {
         loadedFrames,
         during,
         stillLive,
+        duration,
         after: h.getTransitionCount(),
         writesPerFrame: writes / frames,
         engineMsPerFrame: writeMs / frames,
@@ -173,7 +200,8 @@ test.describe('Engine performance under mass trigger', () => {
       `[perf] frame @2000x2: writes/frame ${r.writesPerFrame.toFixed(1)}, ` +
         `rAF schedulings/frame ${r.rafPerFrame.toFixed(1)}, ` +
         `engine ms/frame ${r.engineMsPerFrame.toFixed(2)} | ` +
-        `wall median ${loadMed.toFixed(1)}ms vs render-only baseline ${baseMed.toFixed(1)}ms (p90 ${loadP90.toFixed(1)}ms)`
+        `wall median ${loadMed.toFixed(1)}ms vs render-only baseline ${baseMed.toFixed(1)}ms (p90 ${loadP90.toFixed(1)}ms) | ` +
+        `window 40 frames =~${(loadMed * 40).toFixed(0)}ms inside a ${r.duration}ms transition, ${r.stillLive} still live`
     );
 
     expect(r.during).toBe(2000);

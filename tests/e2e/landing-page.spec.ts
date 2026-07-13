@@ -116,6 +116,71 @@ test.describe('Landing Page', () => {
     );
   });
 
+  test('hero autoplays exactly twice, then hands off to the button', async ({
+    page
+  }) => {
+    const hooks = () => (window as any).__testHooks;
+
+    await page.waitForFunction(() => (window as any).__testHooks?.map, null, {
+      timeout: 20_000
+    });
+    await page.evaluate(() => (window as any).__testHooks.waitForLoad());
+
+    const playBtn = page.getByTestId('hero-play');
+
+    // The button is dead while the wave autoplays.
+    await expect(playBtn).toBeDisabled();
+
+    // Two sweeps, then it settles and the button goes live.
+    await expect(playBtn).toBeEnabled({ timeout: 30_000 });
+    expect(await page.evaluate(() => (window as any).__testHooks.sweepsStarted())).toBe(2);
+    expect(await page.evaluate(() => (window as any).__testHooks.runsLeft())).toBe(0);
+
+    // Settled means settled: nothing left in flight...
+    await page.waitForFunction(
+      () => (window as any).__testHooks.getTransitionCount() === 0,
+      null,
+      { timeout: 10_000 }
+    );
+
+    // ...and it does not re-arm itself. This is the regression that matters:
+    // the hero used to loop forever.
+    await page.waitForTimeout(2_000);
+    expect(
+      await page.evaluate(() => (window as any).__testHooks.getTransitionCount())
+    ).toBe(0);
+    expect(await page.evaluate(() => (window as any).__testHooks.sweepsStarted())).toBe(2);
+
+    // Clicking replays exactly one more sweep.
+    await playBtn.click();
+    await expect(playBtn).toBeDisabled();
+    expect(await page.evaluate(() => (window as any).__testHooks.sweepsStarted())).toBe(3);
+    await expect(playBtn).toBeEnabled({ timeout: 30_000 });
+    expect(await page.evaluate(() => (window as any).__testHooks.sweepsStarted())).toBe(3);
+  });
+
+  test('reduced motion: no autoplay, button is live immediately', async ({
+    browser
+  }) => {
+    const page = await browser.newPage({ reducedMotion: 'reduce' });
+    await page.goto('/');
+
+    await page.waitForFunction(() => (window as any).__testHooks?.map, null, {
+      timeout: 20_000
+    });
+    await page.evaluate(() => (window as any).__testHooks.waitForLoad());
+
+    // Nothing runs on its own...
+    await expect(page.getByTestId('hero-play')).toBeEnabled();
+    expect(await page.evaluate(() => (window as any).__testHooks.sweepsStarted())).toBe(0);
+
+    // ...but the button still works.
+    await page.getByTestId('hero-play').click();
+    expect(await page.evaluate(() => (window as any).__testHooks.sweepsStarted())).toBe(1);
+
+    await page.close();
+  });
+
   test('GitHub link is present', async ({ page }) => {
     const githubLink = page
       .locator('a[href*="github.com/popkinj/maplibre-transition"]')

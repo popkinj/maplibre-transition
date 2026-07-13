@@ -1,5 +1,9 @@
 # maplibre-transition
 
+[![npm](https://img.shields.io/npm/v/maplibre-transition.svg)](https://www.npmjs.com/package/maplibre-transition)
+[![Tests](https://github.com/popkinj/maplibre-transition/actions/workflows/test.yml/badge.svg)](https://github.com/popkinj/maplibre-transition/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 Animate MapLibre GL JS **paint properties per feature** — radius, colour, opacity,
 extrusion height — with a duration, an easing, and a delay.
 

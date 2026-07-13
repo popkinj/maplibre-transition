@@ -160,15 +160,22 @@
         font-weight: 600;
       }
 
-      /* Reduced motion: no autoplay. The button is the entry point. */
-      .hero-play {
-        display: none;
+      /* The hero autoplays twice, then hands control to this button. Under
+         reduced motion there is no autoplay and the button is live immediately.
+         Shared .btn is display:block/width:100% for the sidebar control panels,
+         so it has to be pulled back inline to sit in the CTA row. */
+      .hero .cta .hero-play {
+        display: inline-block;
+        width: auto;
+        padding: 0.6rem 1.1rem;
+        font-size: 0.9rem;
       }
 
-      @media (prefers-reduced-motion: reduce) {
-        .hero-play {
-          display: inline-block;
-        }
+      .hero .cta .hero-play[disabled] {
+        opacity: 0.4;
+        cursor: default;
+        filter: none;
+        transform: none;
       }
 
       /* ----------------------------------------------------------------
@@ -398,6 +405,7 @@
               type="button"
               class="btn ghost hero-play"
               data-testid="hero-play"
+              disabled
             >
               Run the wave
             </button>
@@ -656,6 +664,24 @@ map.<span class="code-function">on</span>(<span class="code-string">'click'</spa
       let ready = false;
       let generation = 0;
 
+      // Sweeps still owed, including the one in flight. The wave is idle at 0.
+      let runsLeft = 0;
+      let sweepsStarted = 0; // for the e2e spec
+      const AUTOPLAY_RUNS = 2;
+
+      const playBtn = document.querySelector('[data-testid="hero-play"]');
+      const setPlayEnabled = (on) => {
+        playBtn.disabled = !on;
+      };
+
+      /** Start a run of `runs` sweeps. Ignored if the wave is already going. */
+      function play(runs) {
+        if (!ready || runsLeft > 0) return;
+        runsLeft = runs;
+        setPlayEnabled(false);
+        sweep(generation);
+      }
+
       if (map) {
         MaplibreTransition.init(map);
 
@@ -672,7 +698,10 @@ map.<span class="code-function">on</span>(<span class="code-string">'click'</spa
             },
           });
           ready = true;
-          if (!reduced) sweep(generation);
+          // Autoplay twice, then the button takes over. Under reduced motion
+          // there is no autoplay at all and the button is the only entry point.
+          if (reduced) setPlayEnabled(true);
+          else play(AUTOPLAY_RUNS);
         });
       }
 
@@ -682,17 +711,18 @@ map.<span class="code-function">on</span>(<span class="code-string">'click'</spa
        * transition costs nothing per frame until it starts, so the whole sweep
        * is far cheaper than firing 1,012 features at once.
        *
-       * The loop re-arms on onComplete — no setTimeout anywhere. The last point
-       * to finish starts the next sweep.
+       * Sweeps chain on onComplete — no setTimeout anywhere. The last point to
+       * finish either starts the next sweep or, when the run is spent, hands
+       * control back to the button.
        */
-      function sweep(gen, once = false) {
-        if (!ready || gen !== generation) return;
+      function sweep(gen) {
+        if (!ready || gen !== generation || runsLeft <= 0) return;
 
+        sweepsStarted++;
         const rest = REST[theme];
         let done = 0;
 
         for (let i = 0; i < TOTAL; i++) {
-          const last = i === TOTAL - 1;
           map.transition(features[i], {
             duration: PULSE_MS,
             ease: "cubic",
@@ -704,10 +734,14 @@ map.<span class="code-function">on</span>(<span class="code-string">'click'</spa
             },
             onComplete: () => {
               done++;
-              // Re-arm from the tail of the wave. If a theme swap superseded
-              // this call's color channel, onComplete never fires for it — which
-              // is exactly what stops a stale generation from looping.
-              if (!once && done === TOTAL && gen === generation) sweep(gen);
+              if (done !== TOTAL || gen !== generation) return;
+              // If a theme swap superseded this call's color channel, onComplete
+              // never fires for it, so we never get here — which is exactly what
+              // stops a stale generation from chaining. The theme handler owns
+              // resuming the run in that case.
+              runsLeft--;
+              if (runsLeft > 0) sweep(gen);
+              else setPlayEnabled(true);
             },
           });
         }
@@ -725,10 +759,12 @@ map.<span class="code-function">on</span>(<span class="code-string">'click'</spa
         if (!ready) return;
 
         // Kill the current generation: its calls own circle-color, so this
-        // recolor supersedes them and their onComplete never fires.
+        // recolor supersedes them and their onComplete never fires. Whatever
+        // sweeps that run still owed are resumed once the recolor settles.
         generation++;
         const gen = generation;
         const rest = REST[theme];
+        const wasRunning = runsLeft > 0;
 
         let settled = 0;
         for (let i = 0; i < TOTAL; i++) {
@@ -742,18 +778,16 @@ map.<span class="code-function">on</span>(<span class="code-string">'click'</spa
             },
             onComplete: () => {
               settled++;
-              if (settled === TOTAL && gen === generation && !reduced) {
-                sweep(gen);
-              }
+              if (settled !== TOTAL || gen !== generation) return;
+              if (wasRunning && !reduced) sweep(gen);
+              else setPlayEnabled(true);
             },
           });
         }
       });
 
-      // Reduced motion: one sweep, on demand.
-      document
-        .querySelector('[data-testid="hero-play"]')
-        .addEventListener("click", () => sweep(generation, true));
+      // The button replays a single sweep, and goes dead while it runs.
+      playBtn.addEventListener("click", () => play(1));
 
       // ----------------------------------------------------------------------
       // Readout + hooks
@@ -777,7 +811,10 @@ map.<span class="code-function">on</span>(<span class="code-string">'click'</spa
           }),
         perf: meter,
         total: TOTAL,
-        sweep: () => sweep(generation, true),
+        sweep: () => play(1),
+        runsLeft: () => runsLeft,
+        sweepsStarted: () => sweepsStarted,
+        playEnabled: () => !playBtn.disabled,
         state: (id) =>
           map ? map.getFeatureState({ source: "hero", id }) : undefined,
       };

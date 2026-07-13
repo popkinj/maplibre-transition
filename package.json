@@ -1,7 +1,7 @@
 {
   "name": "maplibre-transition",
   "version": "1.2.1",
-  "description": "A MapLibre GL JS plugin for smooth transitions between map styles.",
+  "description": "Animate MapLibre GL JS paint properties per feature — radius, colour, opacity, extrusion height — with easing, delays and multi-stop breakpoints, on one requestAnimationFrame for the whole map.",
   "type": "module",
   "main": "dist/index.esm.js",
   "module": "dist/index.esm.js",
@@ -32,6 +32,12 @@
     "maplibre-gl-js",
     "transition",
     "animate",
+    "animation",
+    "feature-state",
+    "paint-properties",
+    "easing",
+    "webgl",
+    "dataviz",
     "map",
     "gis"
   ],
@@ -44,7 +50,7 @@
   "bugs": {
     "url": "https://github.com/popkinj/maplibre-transition/issues"
   },
-  "homepage": "https://github.com/popkinj/maplibre-transition#readme",
+  "homepage": "https://popkinj.github.io/maplibre-transition/",
   "peerDependencies": {
     "maplibre-gl": ">=3.0.0"
   },
