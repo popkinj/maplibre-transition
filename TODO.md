@@ -88,8 +88,9 @@ The plugin uses `getFeatureState()` and `getPaintProperty()` internally (lines 2
 Interruption no longer works by "reversing a scale". A new call on a property that is
 already in flight **supersedes** it: a fresh sampler is built starting from the current
 feature-state value. `reverseScale()` is deprecated, retained only for API compatibility,
-and is not on the interruption path. Documented in `README.md` → "Mid-Animation Reversal"
-and `CLAUDE.md` → "Transition State Management".
+and is not on the interruption path. Documented in `README.md` → "Interrupting a Running
+Transition" (which also spells out the `[0, 60]`-mid-flight footgun) and `CLAUDE.md` →
+"The scheduler".
 
 The important consequence, now documented: **a superseded call's `onComplete` never
 fires.** That is what makes `onComplete` chains cancellable — `examples/chained-transitions.html`
@@ -288,10 +289,17 @@ paint: {
   default exponent 3 — literally `easeCubicInOut`. So `ease` advertises 9 names but
   yields **8 distinct curves**. Fixing this means exposing the exponent, which is an
   API change. Until then, the docs should not imply 9 distinct curves.
-- **Eased values are clamped to `[0, 1]`,** so `elastic` and `bounce` **never overshoot
-  the target** — they pin at it and only wobble back *under* it. Any doc or demo copy
-  promising "elastic overshoot" is lying. Decide whether to unclamp (a real behaviour
-  change) or to document the clamp.
+- **Eased values are clamped to `[0, 1]` (`src/index.ts:178`), so `elastic` never
+  overshoots the target.** `d3.easeElastic` naturally peaks at ~`1.373`; the clamp pins
+  it at the target, so the characteristic spring-past-and-back is lost. Decide whether to
+  unclamp (a real behaviour change — it would let any transition briefly exceed its target
+  value, which callers may not expect for e.g. `circle-opacity` or `fill-extrusion-height`)
+  or to keep documenting the clamp.
+  **`bounce` is unaffected** — `d3.easeBounce` stays within `[0, 1]` by construction
+  (verified: range `0.000 → 1.000`), so it behaves exactly as advertised. An earlier
+  version of this note wrongly lumped it in with `elastic`.
+  Documented for now in `README.md` → "Two honest caveats", which also gives the
+  workaround: express overshoot explicitly as a breakpoint array, `[null, 24, 20]`.
 - **The e2e suite is flaky against the Vite dev server**, because HMR broadcasts a
   `full-reload` to every open page on any HTML/JS save, wiping page state mid-assertion.
   Two independent agents reproduced this. Fix properly by running e2e against a built

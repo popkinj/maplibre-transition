@@ -113,6 +113,27 @@ Measured in headless chromium on the 2000-point `bulk` source in
 - `delay` semantics, the `onStart` timing change, and cancel-by-supersession are
   documented in `README.md`; the scheduler and the theme-swap strategy are documented in
   `CLAUDE.md`.
+- **The README claimed the plugin "automatically reverses" an interrupted transition.**
+  It does not, and has not since the scheduler rewrite — a new call *supersedes* the old
+  one and starts a fresh sampler from the current feature-state value. The old wording
+  also implied you could re-trigger with an explicit start value; doing that mid-flight
+  builds a three-stop ramp (`[45, 0, 60]`) that visibly dives to zero first. The README
+  now says **always re-trigger with `[null, target]`** and explains why.
+- **The easing list over-promised, twice.** It advertised nine easings, but `"poly"` is
+  byte-identical to `"cubic"` (d3's `easePoly` defaults to exponent 3, which *is*
+  `easeCubic`), so there are nine names but **eight distinct curves** — and it described
+  `"poly"` as having a "configurable power" when nothing can configure it. Separately,
+  `"elastic"` cannot overshoot its target, because the eased value is clamped to `[0, 1]`
+  (`src/index.ts:178`). Both are now documented, with `[null, 24, 20]` given as the way to
+  get real overshoot. (`"bounce"` is unaffected — it stays within `[0, 1]` naturally.)
+  Tracked in `TODO.md`; fixing either properly is an API change.
+- **A `Performance` section was added to the README**, documenting the three scheduler
+  guarantees (one rAF per map, one `setFeatureState` per feature per frame, `delay` truly
+  defers), the measured 5,000 × 3 @ 60fps figure, and the two honest caveats: firing a
+  very large batch still blocks for ~100ms, and MapLibre's own repaint — not this plugin —
+  is usually what binds the frame budget.
+- `npm run deploy:examples` publishes the **built** `examples-dist/`, not the `examples/`
+  sources. The README said otherwise.
 
 ### Examples — rebuilt
 

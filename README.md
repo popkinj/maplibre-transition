@@ -1,10 +1,31 @@
-# Maplibre Transition Plugin
+# maplibre-transition
 
-A utility plugin for Maplibre GL JS that adds feature level transition-related functionality.
+Animate MapLibre GL JS **paint properties per feature** — radius, colour, opacity,
+extrusion height — with a duration, an easing, and a delay.
+
+MapLibre can transition a paint property for a whole *layer*. This plugin lets you
+transition it for a single *feature*, by driving `setFeatureState()` from a single
+animation loop and rewriting the layer's paint property to read from that state.
+
+```javascript
+map.transition(feature, {
+  duration: 800,
+  ease: "cubic",
+  paint: { "circle-radius": [null, 20], "circle-color": [null, "#38e0c8"] },
+});
+```
+
+Built to scale: **5,000 features × 3 animated properties at 60fps**, on one
+`requestAnimationFrame` for the entire map. See [Performance](#performance).
+
+**[Live demos →](https://popkinj.github.io/maplibre-transition/)**
 
 ## Compatibility
 
-This plugin is compatible with MapLibre GL JS version 3.0.0 and above.
+MapLibre GL JS **3.0.0 and above** (declared as a peer dependency).
+
+The demo site pins MapLibre 5 because it uses `setSky()`, but the plugin itself does not
+require it.
 
 ## Installation
 
@@ -211,98 +232,145 @@ cannot re-arm itself. No `cancelled` flags, no `clearTimeout`.
 
 `onComplete` chaining is reliable; **do not hand-roll `setTimeout` re-arming.**
 
-## Automatic Behaviors
+## Interrupting a Running Transition
 
-### Mid-Animation Reversal
+Call `transition()` on a feature that is already animating and the new call **supersedes**
+the old one on any property they share. The old call's `onComplete` never fires; the new
+transition starts from wherever the property currently *is*.
 
-When `transition()` is called on a feature that already has a transition running, the plugin automatically reverses it. This enables smooth interactions like hover effects:
+> **Always use `[null, target]` to re-trigger.**
+
+This is the single easiest thing to get wrong. An explicit start value is taken literally:
 
 ```javascript
-// User hovers in, then quickly hovers out before animation completes
-// No special handling needed - just call transition()
-map.on('mouseleave', 'layer', () => {
+// The feature is mid-flight, currently at radius 45.
+
+// WRONG — you get a three-stop ramp [45, 0, 60]:
+// it dives to 0 first, then climbs to 60. Visible, ugly, and surprising.
+map.transition(feature, { paint: { 'circle-radius': [0, 60] } });
+
+// RIGHT — resumes from 45 and goes to 60.
+map.transition(feature, { paint: { 'circle-radius': [null, 60] } });
+```
+
+With `[null, target]` the plugin reads the live feature state, so an interrupted grow
+becomes a smooth shrink from wherever it got to — no bookkeeping, no reversal logic:
+
+```javascript
+// User hovers in, then leaves before the grow finishes. Nothing special needed.
+map.on('mouseleave', 'cities-layer', () => {
   map.transition(feature, {
     duration: 150,
-    ease: 'linear',
     paint: { 'circle-radius': [null, 12] }
   });
-  // Plugin handles smooth reversal from current mid-animation position
 });
 ```
+
+> **Note on `reverseScale()`**: earlier versions reversed the running scale in place.
+> They no longer do — interruption is just "start a fresh transition from the current
+> value". `reverseScale` remains exported for API compatibility, is deprecated, and is
+> not used internally. Do not build on it.
 
 ### Best Practices for Hover Effects
 
-When implementing hover effects on dense point layers:
-
-1. **Store the full feature object**, not just the ID:
+The only state you need is **which** feature is under the pointer — never **what it
+looked like**. `hovered` is a transition target, not a snapshot:
 
 ```javascript
-let hoveredFeature = null;
+let hovered = null;
 
-map.on('mousemove', 'layer', (e) => {
-  if (e.features.length === 0) return;
+map.on('mousemove', 'cities-layer', (e) => {
   const feature = e.features[0];
+  if (!feature || hovered?.id === feature.id) return;
 
-  // Early return if same feature
-  if (hoveredFeature?.id === feature.id) return;
-
-  // Clean up previous feature when moving A → B
-  if (hoveredFeature !== null) {
-    map.transition(hoveredFeature, {
-      duration: 150,
-      paint: { 'circle-radius': [null, 12] }
-    });
+  // Moving A → B: send A back. [null, …] means "from wherever it is now",
+  // so a half-grown marker shrinks smoothly instead of snapping.
+  if (hovered) {
+    map.transition(hovered, { duration: 150, paint: { 'circle-radius': [null, 12] } });
   }
 
-  hoveredFeature = feature;
-  map.transition(feature, {
-    duration: 400,
-    paint: { 'circle-radius': [null, 20] }
-  });
+  hovered = feature;
+  map.transition(feature, { duration: 400, paint: { 'circle-radius': [null, 20] } });
 });
 
-map.on('mouseleave', 'layer', () => {
-  if (hoveredFeature === null) return;
-
-  // Use stored feature directly - no queryRenderedFeatures needed
-  map.transition(hoveredFeature, {
-    duration: 150,
-    paint: { 'circle-radius': [null, 12] }
-  });
-
-  hoveredFeature = null;
+map.on('mouseleave', 'cities-layer', () => {
+  if (!hovered) return;
+  map.transition(hovered, { duration: 150, paint: { 'circle-radius': [null, 12] } });
+  hovered = null;
 });
 ```
 
-2. **Avoid `queryRenderedFeatures()`** on mouseleave - it may not find the feature if it's outside the viewport or return unexpected results with many features.
+1. **Never record the previous value.** `[null, target]` reads live feature state, so
+   there is nothing to remember and nothing to get out of sync.
+2. **Avoid `queryRenderedFeatures()` on mouseleave** — it may miss a feature that has
+   left the viewport. Keep the object from `mousemove` instead.
+3. **You don't need a real MapLibre feature.** The plugin only reads `id`, `source`,
+   `sourceLayer`, and `layer.id`, so a bare object literal works and is cheaper:
+   `{ id: 3, source: 'cities', layer: { id: 'cities-layer' } }`.
 
-3. **Use the `[null, target]` pattern** to let the plugin handle current state detection and mid-animation reversal.
+### `delay` as a dwell threshold
+
+Because `delay` costs nothing until it elapses, it doubles as a "did the user actually
+mean this?" filter — the effect only fires if the pointer *rests* on a feature:
+
+```javascript
+map.transition(feature, {
+  delay: 220,                                    // ignore a pointer just passing through
+  duration: 400,
+  paint: { 'circle-radius': [null, 20] },
+});
+```
+
+If the pointer leaves before the delay elapses, the mouseleave transition supersedes the
+pending one and it simply never starts. No `clearTimeout`, no cancellation flag. This is
+what the **Hover Effects** demo does.
 
 ## Easing Types
 
-The plugin supports the following easing functions from d3-ease:
+`ease` takes one of nine names, mapped to the in-out variant of the matching `d3-ease`
+function (`"quad"` → `d3.easeQuad`, and so on). Default is `"linear"`.
 
-- `"linear"` - Linear interpolation (no easing)
-- `"quad"` - Quadratic easing (smooth acceleration/deceleration)
-- `"cubic"` - Cubic easing (stronger acceleration/deceleration)
-- `"elastic"` - Elastic easing (bouncy effect)
-- `"bounce"` - Bounce easing (multiple bounces)
-- `"circle"` - Circular easing (circular acceleration/deceleration)
-- `"exp"` - Exponential easing (exponential acceleration/deceleration)
-- `"poly"` - Polynomial easing (configurable power)
-- `"sin"` - Sinusoidal easing (smooth sine wave)
-
-Example with different easing:
+| `ease` | Curve |
+| --- | --- |
+| `"linear"` | No easing. |
+| `"sin"` | Gentlest ease-in-out. |
+| `"quad"` | Mild acceleration and deceleration. |
+| `"cubic"` | Stronger. A good default when `"linear"` looks mechanical. |
+| `"poly"` | **Identical to `"cubic"`** — see below. |
+| `"exp"` | Sharp: slow start, fast middle, slow end. |
+| `"circle"` | Sharpest of the symmetric curves. |
+| `"bounce"` | Bounces as it settles. |
+| `"elastic"` | Springy settle — but **does not overshoot**; see below. |
 
 ```javascript
 map.transition(feature, {
   duration: 1000,
-  ease: "elastic", // Try different easing functions
-  paint: {
-    "fill-opacity": [0.1, 1],
-  },
+  ease: "cubic",
+  paint: { "fill-opacity": [0.1, 1] },
 });
 ```
+
+### Two honest caveats
+
+**`"poly"` is the same curve as `"cubic"`.** `d3.easePoly` takes an exponent, which
+defaults to 3 — and an exponent of 3 *is* `easeCubic`. The plugin exposes no way to set
+the exponent, so the two names are interchangeable. There are nine names but eight
+distinct curves.
+
+**`"elastic"` cannot overshoot its target.** `d3.easeElastic` naturally ranges beyond
+`[0, 1]` (it peaks around `1.37`), which is what produces the characteristic spring-past-
+and-back. The plugin clamps the eased value to `[0, 1]`, so a transition to radius `20`
+settles *at* `20` — it never springs past it. Elastic still reads as a distinctly
+"springy" settle, but if you want true overshoot today, express it as a breakpoint array
+instead:
+
+```javascript
+// Explicit overshoot: past the target, then back to it.
+paint: { "circle-radius": [null, 24, 20] }
+```
+
+(`"bounce"` is unaffected — `d3.easeBounce` stays within `[0, 1]` by construction, so it
+behaves exactly as advertised.)
 
 ## Color Transitions
 
@@ -449,6 +517,37 @@ map.transition(feature, {
 });
 ```
 
+## Performance
+
+The plugin is built to animate thousands of features at once. Three guarantees, all
+pinned by tests in `tests/e2e/engine-perf.spec.ts`:
+
+**One `requestAnimationFrame` for the whole map** — not one per feature. Animating 2,000
+features schedules ~3 rAF callbacks per frame, not 2,000. The frame loop allocates
+nothing: per-feature scratch objects are created once and reused.
+
+**One `setFeatureState` write per animating feature per frame** — not one per property. A
+feature animating radius, colour, and opacity together costs a single write.
+
+**`delay` genuinely defers work.** A delayed transition writes its start value once,
+synchronously, then costs nothing per frame until it begins. So staggering is *cheaper*
+than firing flat — 2,000 features spread over a 3-second stagger do roughly an eighth of
+the per-frame work of the same 2,000 fired at once.
+
+Measured on a mid-range GPU with the `stress` demo: 5,000 features × 3 animated
+properties (15,000 concurrent property transitions) holds 60fps, and the synchronous cost
+of firing that whole batch is ~67ms. Cost scales linearly with feature count.
+
+Two things worth knowing:
+
+- **Firing a very large batch is not free.** Kicking 8,000 features × 3 properties is
+  ~24,000 `transition()` calls and blocks for ~100ms — a visible hitch. It is linear, not
+  quadratic, but if you are triggering tens of thousands of transitions from a click,
+  spread the *calls* across a few frames.
+- **The renderer usually binds before the plugin does.** While anything is animating,
+  MapLibre repaints the whole map every frame. At high feature counts that repaint, not
+  this plugin, is what costs you the frame budget.
+
 ## Live Demo
 
 Interactive demos are available at: **[https://popkinj.github.io/maplibre-transition/](https://popkinj.github.io/maplibre-transition/)**
@@ -471,14 +570,19 @@ The demo site includes six pages:
 # Install dependencies
 npm install
 
-# Build the plugin
+# Build the plugin to dist/ (examples import the BUILT plugin, so run this
+# after any change to src/ or the demos will not see it)
 npm run build
 
-# Run the development environment
+# Rebuild on save
 npm run dev
 
-# Open the development webserver that refreshes on saving.
-npm run serve
+# Serve the demo site (examples/) at http://localhost:5173/maplibre-transition/
+npm run serve:examples
+
+# Re-fetch the Vancouver building footprints from OpenStreetMap.
+# The result is committed; you only need this to regenerate it.
+npm run data:buildings
 ```
 
 ## Testing
@@ -534,4 +638,11 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full flow and the one-time trusted-pu
 npm run deploy:examples
 ```
 
-This deploys the `examples/` directory to the `gh-pages` branch, making demos available at `https://popkinj.github.io/maplibre-transition/`.
+This builds the plugin and the demo site, then publishes the built output
+(`examples-dist/`, *not* the `examples/` sources) to the `gh-pages` branch — so the demos
+land at `https://popkinj.github.io/maplibre-transition/`.
+
+> Adding or removing a demo page means editing **three** files together:
+> `examples/index.html` (the card), `vite.examples.config.js` (`rollupOptions.input` — a
+> missing entry silently never deploys; a stale one fails the build), and
+> `tests/e2e/landing-page.spec.ts` (the expected-titles list).
