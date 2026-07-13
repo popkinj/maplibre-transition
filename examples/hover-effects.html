@@ -3,65 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hover Effects - MapLibre Transition</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <title>Hover Effects — maplibre-transition</title>
+  <script>
+    (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+    if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+    var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
   <link rel="stylesheet" href="styles/shared.css">
-  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
   <style>
-    #map {
-      cursor: pointer;
+    /* Dwell is the one page-specific instrument: a bar that fills while the
+       pointer rests on a feature, then latches when the effect fires. */
+    .dwell-meter {
+      position: relative;
+      height: 3px;
+      margin-top: 0.5rem;
+      background: var(--surface-2);
+      border-radius: 2px;
+      overflow: hidden;
     }
+
+    .dwell-meter::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform-origin: left center;
+      transform: scaleX(var(--fill, 0));
+      background: var(--accent);
+    }
+
+    .dwell-meter[data-state="engaged"]::after {
+      background: var(--ramp-3);
+    }
+
+    #map {
+      cursor: crosshair;
+    }
+
+    /* shared.css gives .panel-head `background: inherit` (the translucent --glass), so
+       on a short viewport, where this panel scrolls, content shows through the sticky
+       rail. Opaque surface here until shared.css is fixed. */
+    .panel-head { background: var(--surface); }
+
+    /* Two selects on one row — the panel is an instrument, not a form. */
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .pair label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--ink-muted);
+      margin-bottom: 0.45rem;
+    }
+
+    /* Which paint properties the selected effect actually animates. */
+    .effect-note {
+      margin-top: 0.55rem;
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      line-height: 1.5;
+      color: var(--ink-muted);
+      word-break: break-word;
+    }
+
+    .status-idle { color: var(--ink-muted) !important; }
+    .status-dwelling { color: var(--ramp-2) !important; }
+    .status-engaged { color: var(--ramp-3) !important; }
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-content">
-      <a href="./" class="logo">
-        <div class="logo-icon">T</div>
-        <h1>MapLibre Transition</h1>
-      </a>
-      <nav>
-        <a href="./">Examples</a>
-        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
-      </nav>
-    </div>
-  </header>
-
   <main>
     <div class="example-container">
       <div class="map-container">
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Hover Effects</h2>
-          <p>Hover over Canadian cities to trigger smooth transition effects.</p>
+          <p>
+            Rest the pointer on a city. <span class="paint-prop">delay</span> is a dwell
+            threshold — leave early and the pending transition is superseded, so it never runs.
+          </p>
 
           <div class="control-group">
-            <label>Hover Duration: <span class="value-display" id="duration-value">400ms</span></label>
+            <label>
+              <span class="paint-prop">delay</span>
+              <span class="value-display" id="dwell-value" data-testid="dwell-value">220ms</span>
+            </label>
+            <input type="range" id="dwell" data-testid="dwell-slider" min="0" max="2000" value="220" step="20">
+            <div class="dwell-meter" id="dwell-meter" data-testid="dwell-meter" data-state="idle"></div>
+          </div>
+
+          <div class="control-group">
+            <label>
+              <span class="paint-prop">duration</span>
+              <span class="value-display" id="duration-value" data-testid="duration-value">400ms</span>
+            </label>
             <input type="range" id="duration" data-testid="duration-slider" min="100" max="1000" value="400" step="50">
           </div>
 
           <div class="control-group">
-            <label>Hover Effect</label>
-            <select id="effect" data-testid="effect-select">
-              <option value="grow">Grow & Brighten</option>
-              <option value="pulse">Pulse</option>
-              <option value="color-shift">Color Shift</option>
-              <option value="glow">Glow Effect</option>
-            </select>
+            <div class="pair">
+              <div>
+                <label><span class="paint-prop">paint</span></label>
+                <select id="effect" data-testid="effect-select">
+                  <option value="grow">grow</option>
+                  <option value="pulse">pulse</option>
+                  <option value="color-shift">color-shift</option>
+                  <option value="glow">glow</option>
+                </select>
+              </div>
+              <div>
+                <label><span class="paint-prop">ease</span></label>
+                <select id="easing" data-testid="easing-select">
+                  <option value="quad" selected>quad</option>
+                  <option value="cubic">cubic</option>
+                  <option value="elastic">elastic</option>
+                  <option value="bounce">bounce</option>
+                </select>
+              </div>
+            </div>
+            <p class="effect-note" id="effect-note" data-testid="effect-note">
+              circle-radius, circle-opacity
+            </p>
           </div>
 
-          <div class="control-group">
-            <label>Easing Function</label>
-            <select id="easing" data-testid="easing-select">
-              <option value="quad" selected>Quadratic</option>
-              <option value="cubic">Cubic</option>
-              <option value="elastic">Elastic</option>
-              <option value="bounce">Bounce</option>
-            </select>
-          </div>
-
-          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem;">
-            <strong>Hover Count:</strong> <span id="hover-count" data-testid="hover-count-display">0</span>
+          <div class="readout">
+            <div class="row">
+              <span>status</span>
+              <span id="status" class="status-idle" data-testid="dwell-status">idle</span>
+            </div>
+            <div class="row">
+              <span>effects fired</span>
+              <span id="hover-count" data-testid="hover-count-display">0</span>
+            </div>
+            <div class="row">
+              <span>abandoned before delay</span>
+              <span id="abandoned-count" data-testid="abandoned-count">0</span>
+            </div>
+            <div class="row">
+              <span>animating</span>
+              <span id="active-count" data-testid="active-count">0</span>
+            </div>
           </div>
         </div>
       </div>
@@ -71,41 +157,147 @@
   <script type="module">
     import MaplibreTransition from '../dist/index.esm.js';
     import { canadianCapitalCities } from './data/canadian-cities.js';
+    import { initialTheme, currentTheme } from './scripts/theme.js';
+    import { mountChrome } from './scripts/chrome.js';
+    import { loadBasemap, applyBasemap } from './scripts/basemap.js';
+    import { frameMeter, mountFrameRail } from './scripts/perf.js';
+
+    mountChrome({
+      title: 'Hover Effects',
+      kicker: "paint: { 'circle-radius': [null, 20] }"
+    });
+
+    /* ---------------------------------------------------------------------
+       The resting style. This is the ONLY place a hover default is written:
+       the layer's paint spec is built from it, and every release transitions
+       back to it. There is no "what was it before" bookkeeping anywhere on
+       this page — `[null, target]` reads the current value out of feature
+       state, in both directions, so an interrupted grow simply shrinks from
+       wherever it got to.
+       --------------------------------------------------------------------- */
+    const REST = {
+      light: {
+        'circle-radius': 9,
+        'circle-color': '#26547c',
+        'circle-opacity': 0.85,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#f7f6f2'
+      },
+      dark: {
+        'circle-radius': 9,
+        'circle-color': '#2a9d8f',
+        'circle-opacity': 0.9,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#0d1517'
+      }
+    };
+
+    const HOT = '#f4703a';   // --ramp-3, theme-independent
+    const GLOW = '#e9c46a';  // --ramp-2, theme-independent
+
+    /** Every resting property, as a [null, target] tween. Supersedes anything in flight. */
+    const restPaint = (theme) => {
+      const rest = REST[theme];
+      const paint = {};
+      for (const prop of Object.keys(rest)) paint[prop] = [null, rest[prop]];
+      return paint;
+    };
+
+    /* Effects. Every one of them starts from `null` = the feature's current value, so
+       they compose with an interrupted release without diving to a start value first. */
+    const EFFECTS = {
+      grow: () => ({
+        'circle-radius': [null, 20],
+        'circle-opacity': [null, 1]
+      }),
+      pulse: () => ({
+        'circle-radius': [null, 22, 14],
+        'circle-opacity': [null, 1, 0.9]
+      }),
+      'color-shift': () => ({
+        'circle-color': [null, HOT],
+        'circle-radius': [null, 16]
+      }),
+      glow: () => ({
+        'circle-opacity': [null, 1],
+        'circle-stroke-width': [null, 7],
+        'circle-stroke-color': [null, GLOW]
+      })
+    };
+
+    const theme0 = initialTheme();
 
     const map = new maplibregl.Map({
       container: 'map',
-      style: 'https://demotiles.maplibre.org/style.json',
-      center: [-95, 60],
-      zoom: 3
+      style: await loadBasemap(theme0),
+      center: [-96, 58],
+      zoom: 3,
+      attributionControl: { compact: true }
     });
 
     MaplibreTransition.init(map);
 
-    // Expose test hooks for Playwright
-    window.__testHooks = {
-      map: map,
-      getTransitionCount: () => map.transition.transitions.size,
-      waitForLoad: () => new Promise(resolve => {
-        if (map.loaded()) resolve();
-        else map.once('load', resolve);
-      })
-    };
+    const meter = frameMeter();
 
-    let hoverCount = 0;
-    // Store the full feature object, not just the ID - avoids unreliable queryRenderedFeatures()
-    let hoveredFeature = null;
+    const dwellSlider = document.getElementById('dwell');
+    const dwellValue = document.getElementById('dwell-value');
+    const dwellMeter = document.getElementById('dwell-meter');
+    const durationSlider = document.getElementById('duration');
+    const durationValue = document.getElementById('duration-value');
+    const effectSelect = document.getElementById('effect');
+    const easingSelect = document.getElementById('easing');
+    const statusEl = document.getElementById('status');
+    const hoverCountEl = document.getElementById('hover-count');
+    const abandonedCountEl = document.getElementById('abandoned-count');
+    const activeCountEl = document.getElementById('active-count');
 
-    // Original/default values
-    const defaults = {
-      'circle-radius': 12,
-      'circle-color': '#667eea',
-      'circle-opacity': 0.7,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#ffffff'
+    dwellSlider.addEventListener('input', () => {
+      dwellValue.textContent = `${dwellSlider.value}ms`;
+    });
+    durationSlider.addEventListener('input', () => {
+      durationValue.textContent = `${durationSlider.value}ms`;
+    });
+
+    // The note under the selects is generated from the effect itself, so it cannot drift.
+    const effectNote = document.getElementById('effect-note');
+    const showEffectProps = () => {
+      effectNote.textContent = Object.keys(EFFECTS[effectSelect.value]()).join(', ');
     };
+    effectSelect.addEventListener('change', showEffectProps);
+    showEffectProps();
+
+    const dwellMs = () => parseInt(dwellSlider.value, 10);
+    const durationMs = () => parseInt(durationSlider.value, 10);
+
+    /* The only per-hover state: WHICH feature is under the pointer, and whether its
+       effect has actually begun. Never what the feature looked like — `hovered` is a
+       transition target, not a snapshot. */
+    let hovered = null;    // the feature object from the mousemove event
+    let engaged = false;   // has the delayed effect started?
+    let dwellStart = 0;
+    let fired = 0;
+    let abandoned = 0;
+
+    /* One record per hover, timestamped in-page. The e2e spec reads this instead of
+       sampling the DOM: whether the dwell threshold held is a fact about the page's
+       own clock, not about how fast the test runner got round to looking. */
+    const dwellLog = [];
+    let entry = null;
+
+    function setStatus(s) {
+      statusEl.textContent = s;
+      statusEl.className = `status-${s}`;
+      dwellMeter.dataset.state = s;
+    }
+
+    /** Cities as bare transition targets. generateId assigns id = index in the source data. */
+    const cities = canadianCapitalCities.features.map((_, i) => ({
+      id: i,
+      source: 'cities',
+      layer: { id: 'cities-layer' }
+    }));
 
     map.on('load', () => {
-      // Add Canadian cities
       map.addSource('cities', {
         type: 'geojson',
         data: canadianCapitalCities,
@@ -116,121 +308,156 @@
         id: 'cities-layer',
         type: 'circle',
         source: 'cities',
-        paint: {
-          'circle-radius': 12,
-          'circle-color': '#667eea',
-          'circle-opacity': 0.7,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
-        }
+        paint: { ...REST[theme0] }
       });
 
-      const durationSlider = document.getElementById('duration');
-      const durationValue = document.getElementById('duration-value');
-      const effectSelect = document.getElementById('effect');
-      const easingSelect = document.getElementById('easing');
-      const hoverCountEl = document.getElementById('hover-count');
-
-      durationSlider.addEventListener('input', (e) => {
-        durationValue.textContent = `${e.target.value}ms`;
-      });
-
-      // Hover handlers
-      map.on('mousemove', 'cities-layer', (e) => {
-        if (e.features.length === 0) return;
-
-        const feature = e.features[0];
-
-        // Early return if same feature - no action needed
-        if (hoveredFeature?.id === feature.id) return;
-
-        const duration = parseInt(durationSlider.value);
-        const ease = easingSelect.value;
-        const effect = effectSelect.value;
-
-        // If moving from feature A to feature B, transition A back to defaults first
-        // Use stored feature object directly - no queryRenderedFeatures needed
-        if (hoveredFeature !== null) {
-          map.transition(hoveredFeature, {
-            duration: Math.min(duration, 150), // Quick return animation
-            ease: 'linear',
-            paint: {
-              'circle-radius': [null, defaults['circle-radius']],
-              'circle-color': [null, defaults['circle-color']],
-              'circle-opacity': [null, defaults['circle-opacity']],
-              'circle-stroke-width': [null, defaults['circle-stroke-width']],
-              'circle-stroke-color': [null, defaults['circle-stroke-color']]
-            }
-          });
-        }
-
-        // Store the new feature object (not just the ID)
-        hoveredFeature = feature;
-        hoverCount++;
-        hoverCountEl.textContent = hoverCount;
-
-        // Build paint object based on selected effect
-        // Using [null, targetValue] pattern - plugin queries current state internally
-        let paint = {};
-
-        switch (effect) {
-          case 'grow':
-            paint = {
-              'circle-radius': [null, 20],
-              'circle-opacity': [null, 1]
-            };
-            break;
-          case 'pulse':
-            paint = {
-              'circle-radius': [defaults['circle-radius'], 18, 15],
-              'circle-opacity': [defaults['circle-opacity'], 1, 0.85]
-            };
-            break;
-          case 'color-shift':
-            paint = {
-              'circle-color': [null, '#f093fb'],
-              'circle-radius': [null, 16]
-            };
-            break;
-          case 'glow':
-            paint = {
-              'circle-opacity': [null, 1],
-              'circle-stroke-width': [null, 6],
-              'circle-stroke-color': [null, '#667eea']
-            };
-            break;
-        }
-
-        map.transition(feature, {
-          duration: duration,
-          ease: ease,
-          paint: paint
-        });
-      });
-
-      map.on('mouseleave', 'cities-layer', () => {
-        if (hoveredFeature === null) return;
-
-        const duration = parseInt(durationSlider.value);
-        const ease = easingSelect.value;
-
-        // Use stored feature object directly - always reliable, no queryRenderedFeatures needed
-        // Using [null, targetValue] pattern - plugin queries current state and handles auto-reversal
-        map.transition(hoveredFeature, {
-          duration: duration,
-          ease: ease,
-          paint: {
-            'circle-radius': [null, defaults['circle-radius']],
-            'circle-color': [null, defaults['circle-color']],
-            'circle-opacity': [null, defaults['circle-opacity']],
-            'circle-stroke-width': [null, defaults['circle-stroke-width']],
-            'circle-stroke-color': [null, defaults['circle-stroke-color']]
-          }
-        });
-
-        hoveredFeature = null;
-      });
+      mountFrameRail(document.querySelector('.frame-rail'), meter);
     });
+
+    /* ---------------------------------------------------------------------
+       Hover. Two calls. No timer arms, cancels or fires anything here — the
+       dwell threshold is `delay`, enforced by the engine.
+
+       enter:  map.transition(f, { delay: dwell, paint: EFFECT })
+               The start value is written synchronously; nothing else happens
+               until `delay` elapses. onStart fires on the frame it begins.
+       leave:  map.transition(f, { paint: restPaint() })
+               Targets EVERY resting property, so it supersedes whatever the
+               effect had scheduled — including a delayed effect that has not
+               started yet, which is then cancelled outright (its onStart and
+               onComplete never fire).
+       --------------------------------------------------------------------- */
+
+    function release(feature) {
+      if (!feature) return;
+      map.transition(feature, {
+        duration: Math.min(durationMs(), 220),
+        ease: 'cubic',
+        paint: restPaint(currentTheme())
+      });
+    }
+
+    map.on('mousemove', 'cities-layer', (e) => {
+      if (!e.features.length) return;
+      const feature = e.features[0];
+      if (hovered && hovered.id === feature.id) return;
+
+      // Moving A -> B without a mouseleave: release A, arm B.
+      if (hovered) leave();
+
+      hovered = feature;
+      engaged = false;
+      dwellStart = performance.now();
+
+      const delay = dwellMs();
+      const rec = { id: feature.id, delay, armed: dwellStart, fired: null, abandoned: null };
+      dwellLog.push(rec);
+      entry = rec;
+
+      map.transition(feature, {
+        duration: durationMs(),
+        delay,
+        ease: easingSelect.value,
+        paint: EFFECTS[effectSelect.value](),
+        // Fires synchronously when delay === 0, otherwise on the frame the
+        // transition actually begins. It never fires at all if the pointer
+        // left first, because `release()` superseded every one of its channels.
+        onStart: () => {
+          rec.fired = performance.now();
+          if (hovered !== feature) return;
+          engaged = true;
+          fired++;
+          hoverCountEl.textContent = fired;
+          setStatus('engaged');
+        }
+      });
+
+      setStatus(delay > 0 ? 'dwelling' : 'engaged');
+      map.getCanvas().style.cursor = 'pointer';
+    });
+
+    function leave() {
+      if (!hovered) return;
+      release(hovered);
+      if (!engaged) {
+        abandoned++;
+        abandonedCountEl.textContent = abandoned;
+        if (entry) entry.abandoned = performance.now();
+      }
+      hovered = null;
+      engaged = false;
+      entry = null;
+      setStatus('idle');
+      map.getCanvas().style.cursor = '';
+    }
+
+    map.on('mouseleave', 'cities-layer', leave);
+
+    /* Readouts only — this timer paints two numbers and a progress bar, it never
+       drives a transition. ~16Hz, off the rAF path: the rail owns the frame budget
+       and this must not compete with it. */
+    let lastActive = -1;
+    setInterval(() => {
+      const active = map.transition.transitions.size;
+      if (active !== lastActive) {
+        lastActive = active;
+        activeCountEl.textContent = active;
+      }
+
+      const delay = dwellMs();
+      let fill = 0;
+      if (hovered) {
+        fill = engaged || delay === 0
+          ? 1
+          : Math.min(1, (performance.now() - dwellStart) / delay);
+      }
+      dwellMeter.style.setProperty('--fill', fill.toFixed(3));
+    }, 60);
+
+    /* ---------------------------------------------------------------------
+       Theme. applyBasemap() swaps the basemap under the live map without
+       touching our source, our layer, or its feature state. The circles are
+       then recoloured with map.transition — NEVER setPaintProperty, which the
+       plugin owns for every property it has animated (CONTRACTS §1).
+       --------------------------------------------------------------------- */
+    window.addEventListener('themechange', async (e) => {
+      const theme = e.detail.theme;
+      await applyBasemap(map, theme);
+
+      const rest = REST[theme];
+      const paint = {
+        'circle-color': [null, rest['circle-color']],
+        'circle-stroke-color': [null, rest['circle-stroke-color']]
+      };
+
+      // 58 concurrent colour transitions. A hovered feature's radius channel keeps
+      // running underneath: separate properties, separate calls, no clobbering.
+      for (const city of cities) map.transition(city, { duration: 320, ease: 'cubic', paint });
+
+      // The recolour just superseded the hovered feature's effect colours, so put the
+      // effect back on top of the new resting colour. Commit it: a theme flip mid-dwell
+      // is a strange thing to keep waiting on.
+      if (hovered) {
+        map.transition(hovered, {
+          duration: 320,
+          ease: 'cubic',
+          paint: EFFECTS[effectSelect.value]()
+        });
+        engaged = true;
+        setStatus('engaged');
+      }
+    });
+
+    window.__testHooks = {
+      map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise((resolve) => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      }),
+      dwellLog,
+      hoveredId: () => (hovered ? hovered.id : null)
+    };
   </script>
 </body>
 </html>

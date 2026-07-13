@@ -8,13 +8,31 @@
       and intentionally excluded from the production build (vite.examples.config.js).
       Exposes a small, deterministic API on window.__testHooks so specs can drive
       transitions on known feature ids and read feature state without any UI.
+
+      Two sources:
+        points  - 5 points, ids 0..4      (interruptions.spec.ts)
+        bulk    - 2000 points, ids 0..1999 (engine-perf.spec.ts), added lazily
     -->
     <title>Test Harness - MapLibre Transition</title>
+    <script>
+      // Counts every requestAnimationFrame *scheduling* on the page. Installed
+      // before MapLibre and before the plugin module so it sees all of them.
+      // engine-perf.spec.ts uses this to prove the engine runs ONE global rAF
+      // rather than one per animating feature.
+      window.__rafStats = { calls: 0 };
+      (function () {
+        const raf = window.requestAnimationFrame.bind(window);
+        window.requestAnimationFrame = function (cb) {
+          window.__rafStats.calls++;
+          return raf(cb);
+        };
+      })();
+    </script>
     <link
       rel="stylesheet"
-      href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css"
+      href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css"
     />
-    <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
     <style>
       html,
       body,
@@ -41,6 +59,28 @@
         })),
       };
 
+      // 2000 points on a deterministic grid across the viewport. Ids are the
+      // array index, baked into the file (no generateId), matching the bulk
+      // data contract used by the stress demo.
+      const BULK_N = 2000;
+      const bulk = {
+        type: "FeatureCollection",
+        features: Array.from({ length: BULK_N }, (_, i) => {
+          const cols = 50;
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          return {
+            type: "Feature",
+            id: i,
+            properties: {},
+            geometry: {
+              type: "Point",
+              coordinates: [-140 + col * 1.7, 42 + row * 0.7],
+            },
+          };
+        }),
+      };
+
       const map = new maplibregl.Map({
         container: "map",
         style: "https://demotiles.maplibre.org/style.json",
@@ -57,7 +97,42 @@
         layer: { id: "points-layer" },
       });
 
+      // Pre-built feature descriptors for the bulk source, so bulkTransition()
+      // measures the plugin and not object-literal churn in the harness.
+      const bulkFeatures = Array.from({ length: BULK_N }, (_, id) => ({
+        id,
+        source: "bulk",
+        sourceLayer: undefined,
+        layer: { id: "bulk-layer" },
+      }));
+
       let ready = false;
+      let bulkAdded = false;
+
+      // The bulk source is added on demand so the 5-point interruption specs
+      // keep running against exactly the scene they always had.
+      function ensureBulk() {
+        if (bulkAdded) return Promise.resolve();
+        bulkAdded = true;
+        map.addSource("bulk", { type: "geojson", data: bulk });
+        map.addLayer({
+          id: "bulk-layer",
+          type: "circle",
+          source: "bulk",
+          paint: {
+            "circle-radius": 3,
+            "circle-color": "#3366cc",
+            "circle-opacity": 0.9,
+          },
+        });
+        return new Promise((resolve) => {
+          const check = () => {
+            if (map.isSourceLoaded("bulk")) resolve();
+            else setTimeout(check, 30);
+          };
+          check();
+        });
+      }
 
       window.__testHooks = {
         map,
@@ -72,6 +147,47 @@
         transition: (id, options) => map.transition(feature(id), options),
         // Read a feature's current state (the values the animation writes).
         state: (id) => map.getFeatureState({ source: "points", id }),
+
+        // ---- bulk / perf hooks -------------------------------------------
+        ensureBulk,
+        bulkCount: BULK_N,
+        bulkState: (id) => map.getFeatureState({ source: "bulk", id }),
+        /** Total requestAnimationFrame schedulings on the page so far. */
+        rafCalls: () => window.__rafStats.calls,
+        /**
+         * Fire n map.transition() calls against the bulk source and return the
+         * *synchronous* wall-clock cost, in ms.
+         *
+         * `options.delay` may be a number or a function (i) => number; a
+         * function is evaluated up-front so the RNG is not inside the timer.
+         */
+        bulkTransition: (n, options) => {
+          ensureBulk();
+          const opts = options || {};
+          const delayFn = typeof opts.delay === "function" ? opts.delay : null;
+          const perCall = new Array(n);
+          for (let i = 0; i < n; i++) {
+            perCall[i] = delayFn ? { ...opts, delay: delayFn(i) } : opts;
+          }
+          const t0 = performance.now();
+          for (let i = 0; i < n; i++) {
+            map.transition(bulkFeatures[i], perCall[i]);
+          }
+          return performance.now() - t0;
+        },
+        /** Resolve with n consecutive rAF deltas, in ms. */
+        sampleFrames: (n) =>
+          new Promise((resolve) => {
+            const out = [];
+            let last = null;
+            const tick = (t) => {
+              if (last !== null) out.push(t - last);
+              last = t;
+              if (out.length < n) requestAnimationFrame(tick);
+              else resolve(out);
+            };
+            requestAnimationFrame(tick);
+          }),
       };
 
       map.on("load", () => {

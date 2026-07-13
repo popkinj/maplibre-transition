@@ -105,6 +105,112 @@ map.transition(feature, {
 
 The plugin uses `getFeatureState()` and `getPaintProperty()` to determine the current value when `null` is provided.
 
+## Paint Ownership
+
+**This is the most important rule in the library.**
+
+To animate a paint property per feature, the plugin rewrites it on the layer to read
+from feature state:
+
+```js
+// before
+"circle-radius": 8
+
+// after the first map.transition() touching circle-radius on that layer
+"circle-radius": ["coalesce", ["feature-state", "circle-radius"], 8]
+```
+
+From that moment on, the `(layer, paint-property)` pair **belongs to the plugin**.
+
+> **Never call `map.setPaintProperty()` on a property you have transitioned.**
+> Animate it with `map.transition()` instead.
+
+Calling `setPaintProperty` on an owned property replaces the `coalesce` expression
+with a flat value. Every feature's animated state is then ignored — silently, with
+no error — and the layer goes uniform. If you need to move an owned property, even
+just to recolor it for a theme switch, do it through the plugin:
+
+```js
+// wrong — destroys the coalesce expression, kills every feature's state
+map.setPaintProperty("cities-layer", "circle-color", "#38e0c8");
+
+// right — animates every feature from wherever it is, to the new value
+for (const f of features) {
+  map.transition(f, { duration: 400, paint: { "circle-color": [null, "#38e0c8"] } });
+}
+```
+
+Properties the plugin has *not* transitioned are yours; `setPaintProperty` on those
+is fine. (In the demos, `circle-stroke-color` and `fill-outline-color` are set that
+way, because nothing animates them.)
+
+This rule is also what makes a live basemap swap safe: because the plugin owns those
+expressions and nothing else writes them, the demos can restyle the map underneath
+running transitions without dropping a frame.
+
+### What cannot be animated
+
+- **Layer-constant paint properties** — notably `fill-extrusion-opacity`. They are not
+  data-driven, so feature state cannot reach them.
+- **Any layout property** (`icon-size`, `text-size`, `icon-rotate`, …). The plugin only
+  calls `setPaintProperty`.
+
+Data-driven paint properties all work: `circle-*`, `fill-color` / `fill-opacity`,
+`line-*`, `fill-extrusion-height` / `-base` / `-color`, and symbol `text-*` / `icon-color`.
+
+## Delay and Staggering
+
+`delay` (ms, default `0`) defers the *start* of a transition. It genuinely defers the
+work: the start value is written once, synchronously, at call time, and the transition
+then costs nothing per frame until its delay elapses.
+
+This means **staggering a mass trigger is cheaper than firing it all at once**, not
+more expensive:
+
+```js
+// 8,000 features, swept west to east over 3 seconds.
+features.forEach((f, i) => {
+  map.transition(f, {
+    duration: 900,
+    delay: (i / features.length) * 3000,
+    paint: { "circle-radius": [null, 18] },
+  });
+});
+```
+
+Measured on the `stress` demo with 2,000 features: firing flat costs 2,000
+`setFeatureState` calls per frame; the same batch spread over a 3-second stagger costs
+around 250 — roughly an eighth of the per-frame work, because only the features whose
+delay has elapsed are doing anything.
+
+A delayed transition still enters `map.transition.transitions` **synchronously**, so
+reading `.size` right after the call reflects it.
+
+## Callbacks
+
+```js
+map.transition(feature, {
+  paint: { "circle-radius": [null, 20] },
+  onStart: () => {},
+  onComplete: () => {},
+});
+```
+
+- **`onStart`** fires synchronously *iff* `delay === 0`. With a delay, it fires on the
+  frame the transition actually begins. (It used to fire synchronously regardless,
+  which was simply wrong.)
+- **`onComplete`** fires **once**, when every paint property from *that one call* has
+  finished.
+- **A superseded call never completes.** If a later call takes over any property from
+  an earlier call, the earlier call's `onComplete` never fires.
+
+That last point is a feature, not a caveat: it is what makes `onComplete` chains
+cancellable. To stop a running chain, just start a new transition on the same
+property — the in-flight step is superseded, its `onComplete` never runs, and the chain
+cannot re-arm itself. No `cancelled` flags, no `clearTimeout`.
+
+`onComplete` chaining is reliable; **do not hand-roll `setTimeout` re-arming.**
+
 ## Automatic Behaviors
 
 ### Mid-Animation Reversal
@@ -200,31 +306,39 @@ map.transition(feature, {
 
 ## Color Transitions
 
-The plugin supports smooth color transitions using D3's color interpolation. It automatically detects color values and uses the appropriate color space for interpolation:
+The plugin detects when a property's values are colors and interpolates them with
+D3's `interpolateRgb`:
 
 ```javascript
 map.transition(feature, {
   duration: 1000,
   ease: "linear",
   paint: {
-    "fill-color": ["#ff0000", "#00ff00"], // RGB color transition
-    "fill-outline-color": ["hsl(0,100%,50%)", "hsl(120,100%,50%)"], // HSL color transition
+    "fill-color": ["#ff0000", "#00ff00"],
+    "fill-outline-color": ["hsl(0,100%,50%)", "hsl(120,100%,50%)"],
     "fill-opacity": [0.1, 1],
   },
 });
 ```
 
-The plugin supports the following color formats:
+**Accepted color formats** — anything `d3-color` can parse:
 
-- RGB colors (e.g., "#ff0000", "rgb(255,0,0)")
-- HSL colors (e.g., "hsl(0,100%,50%)")
-- LAB colors (e.g., "lab(50,100,0)")
+- hex — `"#ff0000"`, `"#f00"`
+- `rgb()` / `rgba()` — `"rgb(255,0,0)"`
+- `hsl()` / `hsla()` — `"hsl(0,100%,50%)"`
+- CSS named colors — `"tomato"`
 
-Each color format uses its appropriate interpolation method:
+**Interpolation is always sRGB.** Whatever format you write, values are parsed to
+sRGB and interpolated there. Earlier versions of this README claimed the plugin
+switched to HSL or LAB interpolation depending on the input format. It never did:
+those branches were unreachable dead code (`d3-color`'s `rgb()` never returns
+`null`, so the `null` checks that guarded them could not fire) and they have been
+removed. Writing `"hsl(...)"` is a legal way to *spell* a color; it does not change
+the interpolation space.
 
-- RGB interpolation for RGB colors
-- HSL interpolation for HSL colors (better for hue transitions)
-- LAB interpolation for LAB colors (perceptually uniform)
+CSS `lab()` and `lch()` strings are **not** supported — `d3-color` cannot parse
+them. A string the parser rejects is not treated as a color, so pass hex, `rgb()`,
+`hsl()`, or a named color.
 
 ## Chaining Transitions
 
@@ -281,7 +395,7 @@ map.transition(feature, {
 });
 ```
 
-The plugin automatically interpolates between adjacent colors, creating smooth transitions. The interpolation respects the color space (RGB, HSL, or LAB) of the input colors.
+The plugin automatically interpolates between adjacent colors, creating smooth transitions. Each adjacent pair is one segment of the ramp, and every segment is interpolated in sRGB.
 
 ### Numeric Transitions with Multiple Breakpoints
 
@@ -313,12 +427,13 @@ This creates a smooth transition that:
    - `cubic` or `sin`: Ideal for smooth, professional transitions
    - `linear`: Use for precise, mechanical movements
 
-3. **Color Space Considerations**:
-   - RGB: Best for direct color transitions
-   - HSL: Better for hue-based transitions
-   - LAB: Best for perceptually uniform transitions
+3. **Color Ramps**: Interpolation is sRGB, so a two-stop ramp between distant hues
+   can pass through a muddy midpoint. Add an intermediate stop to steer it — that
+   is exactly what multiple breakpoints are for.
 
-4. **Performance**: While multiple breakpoints are supported, consider the number of breakpoints you use. More breakpoints mean more interpolation calculations.
+4. **Performance**: Segment interpolators are built once per call, not per frame,
+   so extra breakpoints are cheap. The per-frame cost of a transition does not
+   depend on how many breakpoints it has.
 
 Example combining multiple properties with breakpoints:
 
@@ -338,18 +453,16 @@ map.transition(feature, {
 
 Interactive demos are available at: **[https://popkinj.github.io/maplibre-transition/](https://popkinj.github.io/maplibre-transition/)**
 
-The demo site includes examples for:
+The demo site includes six pages:
 
-- Basic Transition - Simple radius transitions on click
-- Color Animation - Color property transitions
-- Color Cycling - Multi-breakpoint color cycles
-- Easing Functions - Compare all 9 easing types
-- Multiple Properties - Animate several properties together
-- Chained Transitions - Sequential animation chains
-- Hover Effects - Mouse-triggered transitions
-- Multi-Breakpoint - Complex piecewise animations
-- Concurrent Effects - Overlapping transitions on the same feature
-- Rising City - Extrusion height transitions on 3D buildings
+| Page | What it teaches |
+| --- | --- |
+| **Playground** | Every option on the call, live — duration, ease, delay, multi-property `paint` — printing the exact object it runs. All 9 easings raced side by side. |
+| **Color & Breakpoints** | A stop editor whose UI *is* the array you pass. Colors and numbers, 2–6 stops, piecewise ramps. |
+| **Hover Effects** | `delay` as a hover-dwell threshold, and `[null, target]` as the reason you never need to remember what a feature looked like. |
+| **Chained Transitions** | Sequences built purely on `onComplete` — no `setTimeout` anywhere. |
+| **Stress** | 8,000 features, three channels each, on one rAF. Raise the stagger and watch `setFeatureState` calls per frame collapse. |
+| **Rising City** | 5,000 real Vancouver buildings rising in 3D on staggered `fill-extrusion-height` transitions. |
 
 
 ## Development

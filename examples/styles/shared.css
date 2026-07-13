@@ -1,110 +1,356 @@
+/* ==========================================================================
+   maplibre-transition — examples design system
+   Instrumentation, not SaaS. Every colour goes through a token.
+   Tokens are defined on :root and overridden on :root[data-theme="dark"].
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap");
+
+/* --------------------------------------------------------------------------
+   1. Tokens
+   -------------------------------------------------------------------------- */
+
 :root {
-  --primary-color: #0066cc;
-  --primary-hover: #0052a3;
-  --secondary-color: #6c757d;
-  --success-color: #28a745;
-  --background: #ffffff;
-  --surface: #f8f9fa;
-  --border: #dee2e6;
-  --text-primary: #212529;
-  --text-secondary: #6c757d;
-  --shadow: rgba(0, 0, 0, 0.1);
-  --shadow-lg: rgba(0, 0, 0, 0.15);
+  color-scheme: light;
+
+  /* Surfaces — chart paper, not white */
+  --bg: #eeece6;
+  --surface: #f7f6f2;
+  --surface-2: #e3e0d8;
+  --glass: rgba(249, 248, 245, 0.86);
+  --hairline: rgba(20, 32, 36, 0.14);
+
+  /* Ink */
+  --ink: #14181c;
+  --ink-muted: #55606a;
+
+  /* Signal */
+  --accent: #00696b;
+  --accent-ink: #ffffff;
+  --hot: #b23a1e;
+  --ok: #2f7a3f;
+
+  /* Depth + graticule */
+  --shadow:
+    0 1px 1px rgba(11, 18, 20, 0.05),
+    0 10px 30px -14px rgba(11, 18, 20, 0.35);
+  --grid: rgba(20, 32, 36, 0.09);
+
+  /* Cartographic ramp — theme-independent, identical in both themes */
+  --ramp-0: #26547c;
+  --ramp-1: #2a9d8f;
+  --ramp-2: #e9c46a;
+  --ramp-3: #f4703a;
+
+  /* Type */
+  --font-display: "Space Grotesk", "Inter", system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --rail-h: 28px;
 }
 
-* {
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Near-black with a blue-green cast. Never pure black. */
+  --bg: #070d0e;
+  --surface: #0d1517;
+  --surface-2: #162023;
+  --glass: rgba(13, 21, 23, 0.8);
+  --hairline: rgba(168, 214, 210, 0.16);
+
+  --ink: #e6eeee;
+  --ink-muted: #8ea3a5;
+
+  --accent: #38e0c8;
+  --accent-ink: #04201c;
+  --hot: #ff7a59;
+  --ok: #6fd28a;
+
+  --shadow:
+    0 1px 1px rgba(0, 0, 0, 0.5),
+    0 16px 44px -18px rgba(0, 0, 0, 0.85);
+  --grid: rgba(168, 214, 210, 0.09);
+
+  /* ramp is deliberately unchanged */
+}
+
+/* --------------------------------------------------------------------------
+   2. Reset + base
+   -------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color: var(--text-primary);
-  background: var(--background);
-  line-height: 1.6;
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Header */
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* The label IS the API: numbers, units and paint-property names are mono. */
+.mono,
+code,
+kbd,
+samp,
+.value-display,
+.readout,
+.kicker,
+.metric,
+.paint-prop {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* --------------------------------------------------------------------------
+   3. Site chrome (injected by scripts/chrome.js)
+   -------------------------------------------------------------------------- */
+
+.site-header,
 header {
-  background: var(--background);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 4px var(--shadow);
   position: sticky;
   top: 0;
   z-index: 1000;
+  background: var(--glass);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .header-content {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 1rem 2rem;
+  padding: 0.7rem 1.25rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 1rem;
+  justify-content: space-between;
 }
 
+.brand,
 .logo {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  color: var(--ink);
   text-decoration: none;
-  color: var(--text-primary);
+  min-width: 0;
 }
 
+.brand:hover,
+.logo:hover {
+  text-decoration: none;
+}
+
+.brand-mark,
 .logo-icon {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: -0.02em;
+}
+
+.brand-name,
+.logo h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-ver {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+}
+
+.site-nav,
+nav {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 1.2rem;
+  gap: 1.1rem;
 }
 
-.logo h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
+.site-nav a,
 nav a {
-  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
   text-decoration: none;
-  margin-left: 2rem;
-  font-weight: 500;
-  transition: color 0.2s;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid transparent;
 }
 
+.site-nav a:hover,
 nav a:hover {
-  color: var(--primary-color);
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom-color: var(--accent);
 }
 
-/* Main content */
+/* Theme toggle — a two-position segmented switch */
+.seg {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  position: relative;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface-2);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  line-height: 1;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.seg .seg-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  height: calc(100% - 4px);
+  border-radius: 999px;
+  background: var(--ink);
+  transition: transform 0.18s ease;
+}
+
+.seg[aria-pressed="true"] .seg-knob {
+  transform: translateX(100%);
+}
+
+.seg span:not(.seg-knob) {
+  position: relative;
+  z-index: 1;
+  padding: 0.36rem 0.5rem;
+  display: grid;
+  place-items: center;
+  transition: color 0.18s ease;
+}
+
+.seg[aria-pressed="false"] span:nth-of-type(2),
+.seg[aria-pressed="true"] span:nth-of-type(3) {
+  color: var(--bg);
+}
+
+/* --------------------------------------------------------------------------
+   4. Page shell
+   -------------------------------------------------------------------------- */
+
 main {
-  max-width: 1200px;
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.25rem;
 }
 
-/* Example pages layout */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.page-head h1 {
+  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem);
+}
+
+.page-head .lede {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+  max-width: 60ch;
+}
+
 .example-container {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2rem;
-  height: calc(100vh - 120px);
+  gap: 1.25rem;
+  height: calc(100vh - 190px);
+  min-height: 520px;
 }
 
 .map-container {
   position: relative;
   background: var(--surface);
-  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 4px 6px var(--shadow);
+  box-shadow: var(--shadow);
   height: 100%;
-  min-height: 500px;
+  min-height: 460px;
 }
 
 #map {
@@ -112,310 +358,633 @@ main {
   height: 100%;
 }
 
+/* --------------------------------------------------------------------------
+   5. The instrument card
+   -------------------------------------------------------------------------- */
+
 .controls {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: white;
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px var(--shadow-lg);
-  max-width: 320px;
+  top: 0.85rem;
+  right: 0.85rem;
   z-index: 100;
+  width: 320px;
+  max-width: calc(100% - 1.7rem);
+  max-height: calc(100% - 1.7rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  background: var(--glass);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+
+/* Panel head: the frame-budget rail lives here, pinned to the top. */
+.panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: inherit;
+  border-bottom: 1px solid var(--hairline);
+}
+
+canvas.frame-rail,
+.frame-rail {
+  display: block;
+  width: 100%;
+  height: var(--rail-h);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--surface-2);
+}
+
+.rail-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-muted);
+}
+
+.rail-legend .metric {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.rail-legend .spacer {
+  flex: 1;
+}
+
+.rail-legend .over {
+  color: var(--hot);
 }
 
 .controls h2 {
-  font-size: 1.25rem;
-  margin-bottom: 1rem;
-  color: var(--text-primary);
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  padding: 0.85rem 0.9rem 0;
 }
 
-.controls p {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
+.kicker {
+  display: block;
+  padding: 0.25rem 0.9rem 0.85rem;
+  font-size: 0.72rem;
+  color: var(--accent);
+  word-break: break-word;
+}
+
+.controls > p {
+  padding: 0 0.9rem 0.85rem;
+  font-size: 0.83rem;
+  color: var(--ink-muted);
   line-height: 1.5;
 }
 
+.controls > p code,
+.controls > p .paint-prop {
+  font-size: 0.95em;
+  color: var(--ink);
+  background: var(--surface-2);
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+}
+
+/* Groups are separated by hairline rules, never by margin. */
 .control-group {
-  margin-bottom: 1.5rem;
+  padding: 0.75rem 0.9rem;
+  border-top: 1px solid var(--hairline);
 }
 
-.control-group label {
-  display: block;
+.control-group:first-child {
+  border-top: none;
+}
+
+.control-group > label,
+.control-group > .group-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: var(--text-primary);
-  font-size: 0.9rem;
+  color: var(--ink-muted);
+  margin-bottom: 0.45rem;
 }
 
-.control-group input[type="range"],
-.control-group select {
+/* The animated property, printed in mono. */
+.paint-prop {
+  font-size: 0.75rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* Live feature-state value, right-aligned in mono. */
+.value-display,
+.readout-value {
+  margin-left: auto;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   6. Inputs
+   -------------------------------------------------------------------------- */
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+select,
+input[type="text"],
+input[type="number"] {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.9rem;
-  background: white;
-}
-
-.control-group input[type="range"] {
-  padding: 0;
-  cursor: pointer;
-}
-
-.control-group .value-display {
-  display: inline-block;
+  padding: 0.42rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink);
   background: var(--surface);
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  margin-left: 0.5rem;
-  color: var(--text-secondary);
-  font-family: monospace;
-}
-
-button {
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 0.7rem center, right 0.45rem center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
   cursor: pointer;
-  transition: all 0.2s;
+}
+
+input[type="text"],
+input[type="number"] {
+  background-image: none;
+  cursor: text;
+}
+
+select option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+input[type="range"] {
   width: 100%;
-}
-
-button:hover {
-  background: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px var(--shadow);
-}
-
-button:active {
-  transform: translateY(0);
-}
-
-/* Landing page specific */
-.hero {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 12px;
-  margin-bottom: 3rem;
-  box-shadow: 0 8px 16px var(--shadow-lg);
-}
-
-.hero h1 {
-  font-size: 3rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-}
-
-.hero p {
-  font-size: 1.25rem;
-  opacity: 0.95;
-  max-width: 700px;
-  margin: 0 auto 2rem;
-}
-
-.hero .cta {
-  display: inline-flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.hero .cta a {
-  background: white;
-  color: #667eea;
-  padding: 0.875rem 2rem;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 600;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.hero .cta a:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
-.hero .cta a.secondary {
+  height: 18px;
   background: transparent;
-  color: white;
-  border: 2px solid white;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--hairline);
+  border-radius: 2px;
 }
 
-.feature-card {
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 2rem;
-  transition: all 0.3s;
-  text-decoration: none;
-  color: var(--text-primary);
-  box-shadow: 0 2px 4px var(--shadow);
+input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: var(--hairline);
+  border-radius: 2px;
 }
 
-.feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px var(--shadow-lg);
-  border-color: var(--primary-color);
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
 }
 
-.feature-card .icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-  border-radius: 10px;
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+input[type="color"] {
+  width: 100%;
+  height: 30px;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.checkbox-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  padding: 0.18rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink);
+  cursor: pointer;
 }
 
-.feature-card h3 {
-  font-size: 1.5rem;
-  margin-bottom: 0.75rem;
-  color: var(--text-primary);
+/* --------------------------------------------------------------------------
+   7. Buttons
+   -------------------------------------------------------------------------- */
+
+.btn,
+.controls .control-group button,
+.controls > button {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.9rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.06s ease;
 }
 
-.feature-card p {
-  color: var(--text-secondary);
-  line-height: 1.6;
+.btn:hover,
+.controls .control-group button:hover,
+.controls > button:hover {
+  filter: brightness(1.12);
 }
 
-/* Footer */
-footer {
-  margin-top: 4rem;
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  border-top: 1px solid var(--border);
+.btn:active,
+.controls .control-group button:active,
+.controls > button:active {
+  transform: translateY(1px);
 }
 
-footer a {
-  color: var(--primary-color);
-  text-decoration: none;
+.btn.ghost,
+.controls .control-group button.ghost {
+  color: var(--ink);
+  background: transparent;
+  border-color: var(--hairline);
+}
+
+.btn.ghost:hover,
+.controls .control-group button.ghost:hover {
+  background: var(--surface-2);
+  filter: none;
+}
+
+.btn:disabled,
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Chip row — small mono toggles (easing pickers, palettes, …) */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.chip {
+  padding: 0.26rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  cursor: pointer;
+  width: auto;
+}
+
+.chip:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.chip[aria-pressed="true"],
+.chip.is-active {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   8. Readout
+   -------------------------------------------------------------------------- */
+
+.readout {
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.74rem;
+  color: var(--ink-muted);
+  background: linear-gradient(var(--grid), var(--grid));
+}
+
+.readout .row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.12rem 0;
+}
+
+.readout .row > span:last-child,
+.readout strong {
+  color: var(--ink);
   font-weight: 500;
 }
 
-footer a:hover {
+.readout .row > span:last-child {
+  text-align: right;
+  color: var(--accent);
+}
+
+.credit {
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+}
+
+.credit a {
+  color: inherit;
   text-decoration: underline;
 }
 
-/* Code blocks */
-code {
-  background: var(--surface);
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 0.9em;
-  color: #5a67d8;
+/* --------------------------------------------------------------------------
+   9. Code — a code block is a terminal. Fixed dark in BOTH themes.
+   -------------------------------------------------------------------------- */
+
+.code-block {
+  background: #0b1113;
+  color: #d6e3e2;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(168, 214, 210, 0.14);
+  overflow-x: auto;
+  line-height: 1.65;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  box-shadow: var(--shadow);
 }
 
+.code-block code,
 pre code {
   background: transparent;
   padding: 0;
   color: inherit;
+  font-size: inherit;
 }
 
-/* Code block container with soft dark theme */
-.code-block {
-  background: linear-gradient(135deg, #1e1e2e 0%, #2d2d3d 100%);
-  color: #cdd6f4;
-  padding: 1.5rem;
-  border-radius: 10px;
-  overflow-x: auto;
-  line-height: 1.7;
-  margin-bottom: 2rem;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* Syntax highlighting - soft pastel colors */
 .code-keyword {
-  color: #cba6f7;
-  font-weight: 500;
+  color: #c4a7f0;
 }
-
 .code-string {
-  color: #a6e3a1;
+  color: #8fd694;
 }
-
 .code-number {
-  color: #fab387;
+  color: #f0b27a;
 }
-
 .code-function {
-  color: #89b4fa;
+  color: #7fb8f5;
 }
-
 .code-property {
-  color: #89dceb;
+  color: #6fd7e6;
 }
-
 .code-comment {
-  color: #6c7086;
+  color: #6b7d80;
   font-style: italic;
 }
-
 .code-cmd {
-  color: #f9e2af;
+  color: #f2dc9a;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* --------------------------------------------------------------------------
+   10. Footer
+   -------------------------------------------------------------------------- */
+
+.site-footer,
+footer {
+  flex: 0 0 auto;
+  margin-top: 2rem;
+  padding: 1.1rem 1.25rem;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.footer-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-footer a,
+footer a {
+  color: var(--ink-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.site-footer a:hover,
+footer a:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* --------------------------------------------------------------------------
+   11. MapLibre control skinning (so the map chrome follows the theme)
+   -------------------------------------------------------------------------- */
+
+.maplibregl-ctrl-group {
+  background: var(--glass) !important;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--hairline) !important;
+}
+
+:root[data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.6);
+}
+
+.maplibregl-ctrl-attrib {
+  background: var(--glass) !important;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border-radius: var(--radius-sm) 0 0 0;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--ink-muted);
+}
+
+:root[data-theme="dark"] .maplibregl-ctrl-attrib-button {
+  filter: invert(1) brightness(1.6);
+}
+
+.maplibregl-popup-content {
+  background: var(--glass);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* --------------------------------------------------------------------------
+   12. Responsive — down to 360px
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
   .header-content {
-    flex-direction: column;
-    gap: 1rem;
+    padding: 0.6rem 0.9rem;
+    gap: 0.6rem;
   }
 
+  .site-nav,
   nav {
+    gap: 0.75rem;
+  }
+
+  main {
+    padding: 0.9rem;
+  }
+
+  .example-container {
+    height: auto;
+    min-height: 0;
+  }
+
+  /* The instrument card stops floating and stacks under the map, inside the same
+     bordered card. .map-container becomes the column that holds both. */
+  .map-container {
+    height: auto;
+    min-height: 0;
     display: flex;
-    gap: 1rem;
+    flex-direction: column;
   }
 
-  nav a {
-    margin-left: 0;
-  }
-
-  .hero h1 {
-    font-size: 2rem;
-  }
-
-  .hero p {
-    font-size: 1rem;
+  #map {
+    height: 56vh;
+    min-height: 320px;
+    flex: 0 0 auto;
   }
 
   .controls {
     position: static;
-    margin-top: 1rem;
+    width: 100%;
     max-width: 100%;
+    max-height: none;
+    overflow: visible;
+    border: none;
+    border-top: 1px solid var(--hairline);
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--surface);
   }
 
-  .example-container {
-    grid-template-columns: 1fr;
-    height: auto;
+  canvas.frame-rail,
+  .frame-rail {
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  body {
+    font-size: 14px;
   }
 
-  .map-container {
-    height: 400px;
+  .brand-name,
+  .logo h1 {
+    font-size: 0.88rem;
+  }
+
+  .brand-ver {
+    display: none;
+  }
+
+  /* Keep the mark, the name, github and the theme switch. Drop the rest. */
+  .site-nav a[data-testid="nav-examples"],
+  .site-nav a[data-testid="nav-npm"] {
+    display: none;
+  }
+
+  .site-nav,
+  nav {
+    gap: 0.6rem;
+  }
+
+  .site-nav a,
+  nav a {
+    font-size: 0.7rem;
+  }
+
+  .header-content {
+    padding: 0.55rem 0.7rem;
+    gap: 0.5rem;
+  }
+
+  main {
+    padding: 0.7rem;
+  }
+
+  .footer-content {
+    justify-content: flex-start;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   13. Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

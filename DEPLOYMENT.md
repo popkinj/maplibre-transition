@@ -85,10 +85,16 @@ npm run deploy:examples
 
 ### What gets deployed
 
-- A landing page linking every example
-- 10 interactive example pages showcasing different features
-- Shared CSS for consistent styling
+- A landing page (with a live map hero) linking every example
+- 6 interactive example pages
+- Shared CSS tokens and JS modules (theme, basemap, chrome, frame meter)
 - The built plugin files (`dist/`)
+
+Every page that ships must be listed in `build.rollupOptions.input` in
+`vite.examples.config.js`. A page that is missing from that list **silently never
+deploys**; a stale entry pointing at a deleted file is a **hard build failure**.
+`_test-harness.html` is deliberately excluded — it is a dev-server-only rig for the
+e2e suite.
 
 ### Deployment process
 
@@ -110,21 +116,23 @@ After the first deployment, configure Pages once:
 
 ```
 examples/
-├── index.html                 # Landing page
-├── basic-transition.html      # Individual example pages
-├── color-animation.html
-├── color-cycle.html
-├── easing-functions.html
-├── multiple-properties.html
-├── chained-transitions.html
+├── index.html                 # Landing page (live map hero)
+├── playground.html            # The six demo pages
+├── color.html
 ├── hover-effects.html
-├── multi-breakpoint.html
-├── concurrent-effects.html
+├── chained-transitions.html
+├── stress.html
 ├── rising-city.html
-├── _test-harness.html         # Deterministic harness driven by the e2e interruptions spec
-├── data/ , public/data/       # Sample GeoJSON / point data
+├── _test-harness.html         # e2e rig — NOT built, NOT linked
+├── scripts/
+│   ├── theme.js               # light/dark state + "themechange" event
+│   ├── basemap.js             # CARTO Positron/Dark Matter, swapped via setStyle({diff:true})
+│   ├── chrome.js              # shared header/footer/theme toggle/frame rail
+│   └── perf.js                # frame meter + frame-budget rail
 ├── styles/
-│   └── shared.css             # Shared styling
+│   └── shared.css             # design tokens, light + dark
+├── data/                      # canadian-cities.js (bundled)
+├── public/data/               # canada-provinces.json, vancouver-buildings.geojson (copied verbatim)
 ├── .nojekyll                  # Tells GitHub Pages not to use Jekyll
 └── README.md
 ```

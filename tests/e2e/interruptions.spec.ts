@@ -190,3 +190,205 @@ test.describe('Transition interruption & concurrency', () => {
     expect(r.after).toBe(0);
   });
 });
+
+/**
+ * Callback ownership, delay, and scratch-object isolation.
+ *
+ * These pin the semantics introduced by the scheduler refactor:
+ *  - callbacks belong to the *call* (a "group"), not to the per-feature
+ *    transition object, so a second call on a different property can no longer
+ *    clobber the first call's onComplete (the old `transition.options = options`
+ *    bug, which concurrent-effects.html used to work around with setTimeout).
+ *  - a call whose property is superseded never completes.
+ *  - `delay` genuinely defers: the start value is written once, synchronously,
+ *    and no frame work happens until the delay elapses.
+ *  - the per-feature scratch state object is reused across frames, so it must
+ *    never leak one feature's properties into another's.
+ */
+test.describe('Transition callbacks, delay & isolation', () => {
+  test.beforeEach(async ({ page }: { page: Page }) => {
+    await page.goto('_test-harness.html');
+    await page.waitForFunction(() => window.__testHooks?.map !== undefined);
+    await page.evaluate(() => window.__testHooks!.waitForLoad());
+  });
+
+  test('a later call on a different property does not clobber the earlier call onComplete', async ({ page }) => {
+    const r = await page.evaluate(async () => {
+      const h: any = window.__testHooks;
+      const sleep = (ms: number) => new Promise((x) => setTimeout(x, ms));
+
+      const fired = { a: 0, b: 0 };
+
+      // Call A: a long radius transition.
+      h.transition(0, {
+        duration: 800,
+        ease: 'linear',
+        paint: { 'circle-radius': [null, 30] },
+        onComplete: () => fired.a++,
+      });
+      await sleep(100);
+      // Call B: a short COLOR transition on the same feature. Different property,
+      // so it must not disturb A's completion.
+      h.transition(0, {
+        duration: 300,
+        ease: 'linear',
+        paint: { 'circle-color': [null, '#00ff00'] },
+        onComplete: () => fired.b++,
+      });
+
+      for (let i = 0; i < 200 && h.getTransitionCount() > 0; i++) await sleep(20);
+      await sleep(120); // let any stray/duplicate callback land
+      return { ...fired, after: h.getTransitionCount() };
+    });
+
+    // Old engine: `activeTransition.options = options` overwrote A's options, so
+    // A's onComplete was silently lost and only B ever fired.
+    expect(r.a).toBe(1);
+    expect(r.b).toBe(1);
+    expect(r.after).toBe(0);
+  });
+
+  test('a superseded call never completes', async ({ page }) => {
+    const r = await page.evaluate(async () => {
+      const h: any = window.__testHooks;
+      const sleep = (ms: number) => new Promise((x) => setTimeout(x, ms));
+
+      const fired = { a: 0, b: 0 };
+      h.transition(0, {
+        duration: 800,
+        ease: 'linear',
+        paint: { 'circle-radius': [null, 30] },
+        onComplete: () => fired.a++,
+      });
+      await sleep(100);
+      // Same property: A is superseded, so A's onComplete must never fire.
+      h.transition(0, {
+        duration: 400,
+        ease: 'linear',
+        paint: { 'circle-radius': [null, 10] },
+        onComplete: () => fired.b++,
+      });
+
+      for (let i = 0; i < 200 && h.getTransitionCount() > 0; i++) await sleep(20);
+      await sleep(200);
+      return { ...fired, final: h.state(0)['circle-radius'], after: h.getTransitionCount() };
+    });
+
+    expect(r.a).toBe(0);
+    expect(r.b).toBe(1);
+    expect(r.final).toBe(10);
+    expect(r.after).toBe(0);
+  });
+
+  test('delay defers the write: nothing moves until the delay elapses', async ({ page }) => {
+    const r = await page.evaluate(async () => {
+      const h: any = window.__testHooks;
+      const sleep = (ms: number) => new Promise((x) => setTimeout(x, ms));
+
+      h.transition(0, {
+        duration: 300,
+        delay: 600,
+        ease: 'linear',
+        paint: { 'circle-radius': [10, 40] },
+      });
+      // Scheduled synchronously, even though it has not started.
+      const immediate = h.getTransitionCount();
+
+      await sleep(300); // half-way through the delay
+      const midDelay = h.state(0)['circle-radius'];
+      const countDuringDelay = h.getTransitionCount();
+
+      for (let i = 0; i < 200 && h.getTransitionCount() > 0; i++) await sleep(20);
+      return {
+        immediate,
+        midDelay,
+        countDuringDelay,
+        final: h.state(0)['circle-radius'],
+        after: h.getTransitionCount(),
+      };
+    });
+
+    expect(r.immediate).toBe(1);
+    // The start value is written once, synchronously; it must not have budged.
+    expect(r.midDelay).toBe(10);
+    expect(r.countDuringDelay).toBe(1);
+    expect(r.final).toBe(40);
+    expect(r.after).toBe(0);
+  });
+
+  test('onStart fires synchronously with no delay, and on the start frame with a delay', async ({ page }) => {
+    const r = await page.evaluate(async () => {
+      const h: any = window.__testHooks;
+      const sleep = (ms: number) => new Promise((x) => setTimeout(x, ms));
+
+      // 1. delay 0 -> synchronous.
+      let syncStarted = 0;
+      h.transition(1, {
+        duration: 200,
+        paint: { 'circle-radius': [10, 20] },
+        onStart: () => syncStarted++,
+      });
+      const startedBeforeReturn = syncStarted; // read immediately after the call
+
+      // 2. delay 400 -> deferred.
+      let delayedStarted = 0;
+      h.transition(2, {
+        duration: 300,
+        delay: 400,
+        paint: { 'circle-radius': [10, 20] },
+        onStart: () => delayedStarted++,
+      });
+      await sleep(150);
+      const at150 = delayedStarted;
+      await sleep(450); // t = 600ms
+      const at600 = delayedStarted;
+
+      for (let i = 0; i < 200 && h.getTransitionCount() > 0; i++) await sleep(20);
+      return { startedBeforeReturn, syncStarted, at150, at600, finalStarted: delayedStarted };
+    });
+
+    expect(r.startedBeforeReturn).toBe(1);
+    expect(r.syncStarted).toBe(1);
+    expect(r.at150).toBe(0);
+    expect(r.at600).toBe(1);
+    expect(r.finalStarted).toBe(1);
+  });
+
+  test('features animating different properties never contaminate each other', async ({ page }) => {
+    const r = await page.evaluate(async () => {
+      const h: any = window.__testHooks;
+      const sleep = (ms: number) => new Promise((x) => setTimeout(x, ms));
+
+      // Feature 3: radius only. Feature 4: color only. Both in flight together.
+      h.transition(3, { duration: 500, ease: 'linear', paint: { 'circle-radius': [10, 28] } });
+      h.transition(4, { duration: 500, ease: 'linear', paint: { 'circle-color': [null, '#ff0000'] } });
+
+      const seen3: string[] = [];
+      const seen4: string[] = [];
+      for (let i = 0; i < 30 && h.getTransitionCount() > 0; i++) {
+        seen3.push(...Object.keys(h.state(3)));
+        seen4.push(...Object.keys(h.state(4)));
+        await sleep(20);
+      }
+      await sleep(200);
+      seen3.push(...Object.keys(h.state(3)));
+      seen4.push(...Object.keys(h.state(4)));
+
+      return {
+        keys3: [...new Set(seen3)],
+        keys4: [...new Set(seen4)],
+        radius3: h.state(3)['circle-radius'],
+        color4: h.state(4)['circle-color'],
+        after: h.getTransitionCount(),
+      };
+    });
+
+    // The per-feature scratch state object is reused every frame; if it were
+    // shared, feature 3 would pick up circle-color (and vice versa).
+    expect(r.keys3).toEqual(['circle-radius']);
+    expect(r.keys4).toEqual(['circle-color']);
+    expect(r.radius3).toBe(28);
+    expect(norm(r.color4)).toBe('rgb(255,0,0)');
+    expect(r.after).toBe(0);
+  });
+});

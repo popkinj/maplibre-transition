@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stress — maplibre-transition</title>
+
+    <!-- Theme, before first paint. Must stay a plain, non-deferred script. -->
+    <script>
+      (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+      if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+      var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+    </script>
+
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="styles/shared.css" />
+
+    <style>
+      /* The two numbers that carry the page. Everything else is a knob. */
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .hero-cell {
+        padding: 0.6rem 0.9rem 0.7rem;
+        min-width: 0;
+      }
+
+      .hero-cell + .hero-cell {
+        border-left: 1px solid var(--hairline);
+      }
+
+      .hero-label {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+      }
+
+      .hero-value {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 1.7rem;
+        font-weight: 600;
+        line-height: 1.15;
+        color: var(--ink);
+      }
+
+      .hero-cell.kick .hero-value {
+        color: var(--accent);
+      }
+
+      .hero-unit {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--ink-muted);
+        margin-left: 0.15rem;
+      }
+
+      .hint {
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        line-height: 1.45;
+        color: var(--ink-muted);
+        margin-top: 0.4rem;
+      }
+
+      .hint b {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* Checkbox rows must not be direct children of .control-group, or the
+         group-label flex rules grab them. */
+      .rows {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+
+      .rows + .hint {
+        margin-top: 0.5rem;
+      }
+
+      .controls .btn.kick-btn {
+        padding: 0.7rem 0.9rem;
+        font-size: 0.95rem;
+      }
+    </style>
+
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+
+          <div class="controls">
+            <h2>Stress</h2>
+            <p>
+              8,000 sensors on a jittered grid. Every one of them is a real
+              feature-state transition. Kick them all off and watch the frame
+              rail — then raise the stagger and watch it get
+              <em>cheaper</em>.
+            </p>
+
+            <div class="hero">
+              <div class="hero-cell kick">
+                <span class="hero-label">kick</span>
+                <span class="hero-value" data-testid="kick-ms">—</span
+                ><span class="hero-unit">ms</span>
+              </div>
+              <div class="hero-cell">
+                <span class="hero-label">fps</span>
+                <span class="hero-value" data-testid="fps">—</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <button class="btn kick-btn" data-testid="kick">
+                Kick everything off
+              </button>
+              <div class="hint">
+                kick = the synchronous cost of firing the whole batch
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="count">
+                <span class="paint-prop">features</span>
+                <span class="value-display" data-testid="count-value">2500</span>
+              </label>
+              <input
+                type="range"
+                id="count"
+                data-testid="count"
+                min="100"
+                max="8000"
+                step="100"
+                value="2500"
+              />
+              <div class="hint">
+                setFilter(["&lt;", ["id"], n]) — never setData, which would
+                rebuild the tiles and drop every feature state
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="pattern">pattern</label>
+              <select id="pattern" data-testid="pattern">
+                <option value="radial">radial wave</option>
+                <option value="sweep">sweep</option>
+                <option value="scatter">scatter</option>
+                <option value="all">all at once</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label for="stagger">
+                <span class="paint-prop">delay</span> spread
+                <span class="value-display" data-testid="stagger-value">600ms</span>
+              </label>
+              <input
+                type="range"
+                id="stagger"
+                data-testid="stagger"
+                min="0"
+                max="3000"
+                step="50"
+                value="600"
+              />
+              <div class="hint">
+                a delayed transition <b>costs nothing per frame until it
+                starts</b> — raise the spread and watch setFeatureState/frame
+                collapse, and, once the map is frame-bound, fps climb
+              </div>
+            </div>
+
+            <div class="control-group">
+              <span class="group-label">
+                channels
+                <span class="value-display" data-testid="channels-armed">3</span>
+              </span>
+              <div class="rows">
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-radius" checked />
+                  circle-radius
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-color" checked />
+                  circle-color
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-opacity" checked />
+                  circle-opacity
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="chan-stroke" />
+                  circle-stroke-width
+                </label>
+              </div>
+              <div class="hint">
+                each channel is a separate map.transition() call on the same
+                feature, on its own clock
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="jitter">
+                duration jitter
+                <span class="value-display" data-testid="jitter-value">25%</span>
+              </label>
+              <input
+                type="range"
+                id="jitter"
+                data-testid="jitter"
+                min="0"
+                max="80"
+                step="5"
+                value="25"
+              />
+              <div class="rows">
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="random-ease" />
+                  random easing per feature
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" data-testid="loop" />
+                  loop while idle
+                </label>
+              </div>
+            </div>
+
+            <div class="readout">
+              <div class="row">
+                <span>animating</span>
+                <span data-testid="animating">0</span>
+              </div>
+              <div class="row">
+                <span>channels/frame</span>
+                <span data-testid="channels">7500</span>
+              </div>
+              <div class="row">
+                <span>setFeatureState/frame</span>
+                <span data-testid="writes">0</span>
+              </div>
+              <div class="row">
+                <span>p95 frame</span>
+                <span data-testid="p95">—</span>
+              </div>
+              <div class="row">
+                <span>duration</span>
+                <span data-testid="duration">1200ms ±25%</span>
+              </div>
+            </div>
+
+            <div class="credit">
+              The rail times the <em>whole map</em>: while anything animates,
+              MapLibre repaints the basemap every frame, and that alone can miss
+              the 16.7ms budget. The plugin's share is one setFeatureState per
+              animating feature per frame — one, not one per channel.
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      import MaplibreTransition from "../dist/index.esm.js";
+      import { initialTheme } from "./scripts/theme.js";
+      import { mountChrome } from "./scripts/chrome.js";
+      import { loadBasemap, applyBasemap } from "./scripts/basemap.js";
+      import { frameMeter, mountFrameRail } from "./scripts/perf.js";
+
+      mountChrome({ title: "Stress", kicker: "map.transition(f, { delay })" });
+
+      // ----------------------------------------------------------------------
+      // The field: 8,000 sensors on a jittered grid.
+      //
+      // ids are assigned in a *shuffled* order so that the id prefix 0..n-1 is a
+      // uniform sample of the whole bbox — the feature-count slider filters on
+      // ["<", ["id"], n], and a row-major id order would show a horizontal band
+      // instead of a thinner field.
+      // ----------------------------------------------------------------------
+
+      const COLS = 100;
+      const ROWS = 80;
+      const TOTAL = COLS * ROWS; // 8000
+      const BBOX = [-123.34, 49.05, -122.66, 49.45]; // w, s, e, n
+      const JITTER = 0.42; // fraction of a cell
+
+      /** Deterministic PRNG — the field is the same on every reload. */
+      function mulberry32(a) {
+        return function () {
+          a |= 0;
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      // Per-feature, precomputed ONCE and indexed by id. Stagger patterns read
+      // these — they are never recomputed on a kick.
+      const gx = new Float32Array(TOTAL); // 0..1 across the field
+      const gy = new Float32Array(TOTAL); // 0..1 down the field
+      const dist = new Float32Array(TOTAL); // 0..1 from the centre
+      const rnd = new Float32Array(TOTAL); // stable per-feature random
+      const easeIdx = new Uint8Array(TOTAL);
+
+      const EASES = [
+        "cubic",
+        "quad",
+        "sin",
+        "exp",
+        "circle",
+        "poly",
+        "bounce",
+        "elastic",
+        "linear",
+      ];
+
+      const fieldGeoJSON = (() => {
+        const rng = mulberry32(0xf1e1d);
+        const cells = new Array(TOTAL);
+        const dx = (BBOX[2] - BBOX[0]) / COLS;
+        const dy = (BBOX[3] - BBOX[1]) / ROWS;
+
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const u = (c + 0.5) / COLS;
+            const v = (r + 0.5) / ROWS;
+            cells[r * COLS + c] = {
+              lon: BBOX[0] + (c + 0.5 + (rng() - 0.5) * JITTER * 2) * dx,
+              lat: BBOX[1] + (r + 0.5 + (rng() - 0.5) * JITTER * 2) * dy,
+              u,
+              v,
+              // normalized radial distance from the centre of the field
+              d: Math.hypot(u - 0.5, v - 0.5) / Math.SQRT1_2,
+            };
+          }
+        }
+
+        // Fisher-Yates, seeded. Shuffled cells -> id = position in the shuffle.
+        for (let i = TOTAL - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          const t = cells[i];
+          cells[i] = cells[j];
+          cells[j] = t;
+        }
+
+        const features = new Array(TOTAL);
+        for (let i = 0; i < TOTAL; i++) {
+          const cell = cells[i];
+          gx[i] = cell.u;
+          gy[i] = cell.v;
+          dist[i] = Math.min(1, cell.d);
+          rnd[i] = rng();
+          easeIdx[i] = Math.floor(rng() * EASES.length);
+          features[i] = {
+            type: "Feature",
+            id: i, // numeric, stable, no generateId
+            properties: {},
+            geometry: {
+              type: "Point",
+              coordinates: [
+                Math.round(cell.lon * 1e6) / 1e6,
+                Math.round(cell.lat * 1e6) / 1e6,
+              ],
+            },
+          };
+        }
+        return { type: "FeatureCollection", features };
+      })();
+
+      // ----------------------------------------------------------------------
+      // Paint
+      // ----------------------------------------------------------------------
+
+      const BASE = {
+        radius: 2.6,
+        opacity: 0.5,
+        stroke: 0,
+      };
+      const PEAK = {
+        radius: 8,
+        opacity: 1,
+        stroke: 3,
+      };
+      // The ramp is theme-independent, but the resting colour is not: ramp-0 is a
+      // deep navy that vanishes on Dark Matter.
+      const COLORS = {
+        light: { base: "#26547c", hot: "#f4703a" },
+        dark: { base: "#2a9d8f", hot: "#f4703a" },
+      };
+
+      let theme = initialTheme();
+      let baseColor = COLORS[theme].base;
+
+      /** Each channel is one map.transition() call. They multiply per-frame work. */
+      const CHANNELS = [
+        {
+          id: "radius",
+          testid: "chan-radius",
+          paint: () => ({ "circle-radius": [null, PEAK.radius, BASE.radius] }),
+        },
+        {
+          id: "color",
+          testid: "chan-color",
+          paint: () => ({
+            "circle-color": [null, COLORS[theme].hot, baseColor],
+          }),
+        },
+        {
+          id: "opacity",
+          testid: "chan-opacity",
+          paint: () => ({
+            "circle-opacity": [null, PEAK.opacity, BASE.opacity],
+          }),
+        },
+        {
+          id: "stroke",
+          testid: "chan-stroke",
+          paint: () => ({
+            "circle-stroke-width": [null, PEAK.stroke, BASE.stroke],
+          }),
+        },
+      ];
+
+      // ----------------------------------------------------------------------
+      // Map
+      // ----------------------------------------------------------------------
+
+      const map = new maplibregl.Map({
+        container: "map",
+        style: await loadBasemap(theme),
+        center: [(BBOX[0] + BBOX[2]) / 2, (BBOX[1] + BBOX[3]) / 2],
+        zoom: 9.6,
+        attributionControl: { compact: true },
+      });
+
+      MaplibreTransition.init(map);
+
+      const meter = frameMeter();
+      mountFrameRail(document.querySelector(".frame-rail"), meter);
+
+      // The honest per-frame cost. "channels/frame" counts what the batch
+      // *scheduled*; a delayed channel is scheduled but does no work until it
+      // starts. This counts what the engine actually did: one setFeatureState per
+      // animating feature per frame. Raise the stagger and watch it fall.
+      let writeCount = 0;
+      const realSetFeatureState = map.setFeatureState.bind(map);
+      map.setFeatureState = (target, state) => {
+        writeCount++;
+        return realSetFeatureState(target, state);
+      };
+
+      // Hand-rolled feature literals — the plugin reads exactly these four fields.
+      // Allocated once: a kick must not allocate 8,000 objects.
+      const FEATURES = new Array(TOTAL);
+      for (let i = 0; i < TOTAL; i++) {
+        FEATURES[i] = {
+          id: i,
+          source: "field",
+          sourceLayer: undefined,
+          layer: { id: "field-layer" },
+        };
+      }
+
+      // ----------------------------------------------------------------------
+      // Controls
+      // ----------------------------------------------------------------------
+
+      const $ = (id) => document.querySelector(`[data-testid="${id}"]`);
+
+      const els = {
+        kick: $("kick"),
+        count: $("count"),
+        countValue: $("count-value"),
+        pattern: $("pattern"),
+        stagger: $("stagger"),
+        staggerValue: $("stagger-value"),
+        jitter: $("jitter"),
+        jitterValue: $("jitter-value"),
+        randomEase: $("random-ease"),
+        loop: $("loop"),
+        kickMs: $("kick-ms"),
+        fps: $("fps"),
+        p95: $("p95"),
+        animating: $("animating"),
+        channels: $("channels"),
+        writes: $("writes"),
+        channelsArmed: $("channels-armed"),
+        duration: $("duration"),
+      };
+
+      const BASE_DURATION = 1200;
+
+      let count = Number(els.count.value);
+      let lastKick = 0;
+      let lastKickSize = 0; // features scheduled by the last kick
+      let lastKickChannels = 0; // channels scheduled by the last kick
+      let kicks = 0;
+      let ready = false;
+
+      const activeChannels = () =>
+        CHANNELS.filter((c) => $(c.testid).checked);
+
+      /** Precomputed per-feature stagger position, 0..1. */
+      function offset(pattern, i) {
+        if (pattern === "radial") return dist[i];
+        if (pattern === "sweep") return gx[i];
+        if (pattern === "scatter") return rnd[i];
+        return 0; // "all at once"
+      }
+
+      /**
+       * Fire one transition per (feature, channel) and return the synchronous
+       * cost of the whole batch. THIS is the headline number: on the old engine
+       * it was O(N^2) — seconds, not milliseconds.
+       */
+      function kick() {
+        if (!ready) return 0;
+
+        const chans = activeChannels();
+        if (chans.length === 0) {
+          lastKick = 0;
+          render();
+          return 0;
+        }
+
+        const n = count;
+        const pattern = els.pattern.value;
+        const stagger = Number(els.stagger.value);
+        const jitter = Number(els.jitter.value) / 100;
+        const randomEase = els.randomEase.checked;
+
+        // Paint arrays are per-channel constants — build them once per kick, not
+        // once per feature.
+        const paints = chans.map((c) => c.paint());
+
+        const t0 = performance.now();
+        for (let i = 0; i < n; i++) {
+          const delay = stagger * offset(pattern, i);
+          const duration = BASE_DURATION * (1 + (rnd[i] * 2 - 1) * jitter);
+          const ease = randomEase ? EASES[easeIdx[i]] : "cubic";
+          const f = FEATURES[i];
+          for (let c = 0; c < paints.length; c++) {
+            map.transition(f, { duration, delay, ease, paint: paints[c] });
+          }
+        }
+        lastKick = performance.now() - t0;
+
+        // Snapshot what the batch actually scheduled, outside the timing bracket.
+        // Delayed transitions enter the Set synchronously, so this is the whole
+        // batch — every feature, every channel, before a single frame has run.
+        lastKickSize = map.transition.transitions.size;
+        lastKickChannels = liveChannels();
+        kicks++;
+
+        // The batch wrote every start value synchronously (that cost is the headline
+        // above, in ms). Don't let it pollute the steady-state writes/frame readout.
+        writeCount = 0;
+
+        render();
+        return lastKick;
+      }
+
+      /** The feature count NEVER touches the source. */
+      function setCount(n) {
+        count = Math.max(100, Math.min(TOTAL, Math.round(n)));
+        els.count.value = String(count);
+        els.countValue.textContent = count.toLocaleString();
+        if (map.getLayer("field-layer")) {
+          map.setFilter("field-layer", ["<", ["id"], count]);
+        }
+        render();
+      }
+
+      /**
+       * Channels the engine currently has scheduled. Each facade in the transitions
+       * Set carries one enumerable key per unfinished channel, so this is a real
+       * count — but a *delayed* channel is scheduled and not yet running, which is
+       * exactly why writes/frame (below) is the number that moves with the stagger.
+       * With nothing scheduled we show what the next kick will arm.
+       */
+      function liveChannels() {
+        let n = 0;
+        for (const t of map.transition.transitions) {
+          for (const _ in t) n++;
+        }
+        return n;
+      }
+
+      /** Measured setFeatureState calls per frame, averaged over the last ~200ms. */
+      let writesPerFrame = 0;
+
+      function render() {
+        const active = map.transition.transitions.size;
+        const armed = count * activeChannels().length;
+        const live = active > 0 ? liveChannels() : 0;
+
+        els.kickMs.textContent = lastKick ? lastKick.toFixed(1) : "—";
+        els.fps.textContent = String(Math.round(meter.fps()));
+        els.p95.textContent = `${meter.p95().toFixed(1)}ms`;
+        els.animating.textContent = active.toLocaleString();
+        els.channels.textContent = (active > 0 ? live : armed).toLocaleString();
+        els.writes.textContent = Math.round(writesPerFrame).toLocaleString();
+        els.channelsArmed.textContent = String(activeChannels().length);
+        els.duration.textContent = `${BASE_DURATION}ms ±${els.jitter.value}%`;
+      }
+
+      els.kick.addEventListener("click", () => kick());
+      els.count.addEventListener("input", () => setCount(Number(els.count.value)));
+      els.stagger.addEventListener("input", () => {
+        els.staggerValue.textContent = `${els.stagger.value}ms`;
+        render();
+      });
+      els.jitter.addEventListener("input", () => {
+        els.jitterValue.textContent = `${els.jitter.value}%`;
+        render();
+      });
+      els.pattern.addEventListener("change", render);
+      els.randomEase.addEventListener("change", render);
+      CHANNELS.forEach((c) => $(c.testid).addEventListener("change", render));
+
+      // ----------------------------------------------------------------------
+      // Frame loop: readouts + the idle loop. Piggybacks on the meter's rAF —
+      // this page must not add a second one.
+      // ----------------------------------------------------------------------
+
+      let lastPaint = 0;
+      let framesSincePaint = 0;
+      const onFrame = (t) => {
+        framesSincePaint++;
+        if (els.loop.checked && ready && map.transition.transitions.size === 0) {
+          kick();
+        }
+        if (t - lastPaint > 200) {
+          lastPaint = t;
+          writesPerFrame = framesSincePaint ? writeCount / framesSincePaint : 0;
+          writeCount = 0;
+          framesSincePaint = 0;
+          render();
+        }
+      };
+      if (typeof meter.onFrame === "function") {
+        meter.onFrame(onFrame);
+      } else {
+        const tick = (t) => {
+          onFrame(t);
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+
+      // ----------------------------------------------------------------------
+      // Theme
+      // ----------------------------------------------------------------------
+
+      window.addEventListener("themechange", async (e) => {
+        theme = e.detail.theme;
+        baseColor = COLORS[theme].base;
+
+        await applyBasemap(map, theme);
+
+        // The plugin owns circle-color now, so setPaintProperty is off the table:
+        // recolour every sensor — all 8,000, not just the visible ones, or the
+        // slider would reveal stale colours — with the engine itself.
+        if (!ready) return;
+        const paint = { "circle-color": [null, baseColor] };
+        for (let i = 0; i < TOTAL; i++) {
+          map.transition(FEATURES[i], {
+            duration: 500,
+            ease: "cubic",
+            paint,
+          });
+        }
+      });
+
+      // ----------------------------------------------------------------------
+      // Boot
+      // ----------------------------------------------------------------------
+
+      map.on("load", () => {
+        // No generateId: the ids are baked into the features, so the layer filter
+        // and the transition targets agree on the id space.
+        map.addSource("field", { type: "geojson", data: fieldGeoJSON });
+
+        map.addLayer({
+          id: "field-layer",
+          type: "circle",
+          source: "field",
+          filter: ["<", ["id"], count],
+          paint: {
+            "circle-radius": BASE.radius,
+            "circle-color": baseColor,
+            "circle-opacity": BASE.opacity,
+            "circle-stroke-width": BASE.stroke,
+            "circle-stroke-color": "#e9c46a",
+          },
+        });
+
+        ready = true;
+        setCount(count);
+        render();
+      });
+
+      window.__testHooks = {
+        map,
+        getTransitionCount: () => map.transition.transitions.size,
+        waitForLoad: () =>
+          new Promise((resolve) => {
+            if (map.loaded()) resolve();
+            else map.once("load", resolve);
+          }),
+        perf: meter,
+        kick,
+        setCount,
+        lastKickMs: () => lastKick,
+        // extras, for the spec
+        state: (id) => map.getFeatureState({ source: "field", id }),
+        featureCount: () => count,
+        kicks: () => kicks,
+        lastKickSize: () => lastKickSize,
+        lastKickChannels: () => lastKickChannels,
+        writesPerFrame: () => writesPerFrame,
+        total: TOTAL,
+        liveChannels,
+      };
+    </script>
+  </body>
+</html>

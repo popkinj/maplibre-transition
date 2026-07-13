@@ -1,18 +1,24 @@
-import { Map } from "maplibre-gl";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import { scaleLinear } from "d3-scale";
 import * as d3Ease from "d3-ease";
-import { interpolateRgb, interpolateHsl, interpolateLab, interpolateArray } from "d3-interpolate";
-import { rgb, hsl, lab } from "d3-color";
+import { interpolateRgb } from "d3-interpolate";
+import { rgb } from "d3-color";
 
 /**
  * Configuration options for feature transitions.
  * @interface TransitionOptions
  * @property {number} [duration=1000] - Duration of the transition in milliseconds
  * @property {string} [ease="linear"] - Easing function to use for the transition
- * @property {number} [delay=0] - Delay before starting the transition in milliseconds
- * @property {Record<string, (string | number)[]>} [paint] - Paint properties to transition, mapping property names to arrays of values
- * @property {() => void} [onComplete] - Callback function to execute when transition completes
- * @property {() => void} [onStart] - Callback function to execute when transition starts
+ * @property {number} [delay=0] - Delay before starting the transition in milliseconds.
+ *   The start value is written once, synchronously; no per-frame work is done until
+ *   the delay elapses.
+ * @property {Record<string, (string | number | null)[]>} [paint] - Paint properties to
+ *   transition, mapping property names to arrays of values. A leading `null` means
+ *   "start from the feature's current value".
+ * @property {() => void} [onComplete] - Called once, when every paint property from
+ *   *this* call has finished. Never called if any of them is superseded by a later call.
+ * @property {() => void} [onStart] - Called once. Synchronously iff `delay === 0`;
+ *   otherwise on the frame the transition actually begins.
  */
 export interface TransitionOptions {
   duration?: number;
@@ -27,7 +33,7 @@ export interface TransitionOptions {
     | "poly"
     | "sin";
   delay?: number;
-  paint?: Record<string, (string | number)[]>;
+  paint?: Record<string, (string | number | null)[]>;
   onComplete?: () => void;
   onStart?: () => void;
 }
@@ -42,9 +48,9 @@ export interface TransitionState {
 }
 
 /**
- * Collection of d3 scales used for transitioning different properties.
+ * Collection of samplers used for transitioning different properties.
  * @interface TransitionScales
- * @property {any} [key: string] - Maps transition keys to their corresponding d3 scales
+ * @property {any} [key: string] - Maps transition keys to their corresponding samplers
  */
 export interface TransitionScales {
   [key: string]: any;
@@ -68,6 +74,12 @@ declare module "maplibre-gl" {
   }
 }
 
+/** A sampler maps a timestamp (performance.now-based) to a paint value. */
+export type Sampler = (t: number) => string | number;
+
+/** An easing function: [0,1] -> roughly [0,1] (elastic/back may overshoot). */
+type EaseFn = (t: number) => number;
+
 /**
  * Converts a camelCase string to kebab-case.
  * @param {string} str - The string to convert
@@ -77,163 +89,352 @@ function camelToKebab(str: string): string {
   return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
+const clamp01 = (t: number): number => (t < 0 ? 0 : t > 1 ? 1 : t);
+
 /**
- * Detects if values are colors and returns the appropriate interpolator
+ * Detects if values are colors and returns the appropriate interpolator.
+ *
+ * The per-segment d3 interpolators are built ONCE, here, rather than on every
+ * frame. `rgb()` from d3-color never returns null - it returns an Rgb with NaN
+ * channels for unparseable input - so the parse guard checks for NaN.
+ *
  * @param {Array<string | number>} values - Array of values to interpolate between
- * @returns {Function|null} The appropriate interpolator function or null if not colors
+ * @returns {Function|null} The interpolator over t in [0,1], or null if not colors
  */
-function getColorInterpolator(values: (string | number)[]): ((t: number) => string) | null {
+function getColorInterpolator(
+  values: (string | number)[]
+): ((t: number) => string) | null {
   // Only try color interpolation if all values are strings
-  if (!values.every(v => typeof v === 'string')) {
+  if (!values.every((v) => typeof v === "string")) {
     return null;
   }
+  if (values.length === 0) return null;
 
-  try {
-    // Try parsing as RGB
-    const rgbValues = values.map(v => rgb(v as string));
-    if (rgbValues.every(v => v)) {
-      return (t: number) => {
-        const clampedT = Math.min(Math.max(t, 0), 1);
-        if (clampedT === 1) return rgbValues[rgbValues.length - 1].toString();
-        const i = Math.floor(clampedT * (rgbValues.length - 1));
-        const j = Math.min(i + 1, rgbValues.length - 1);
-        const localT = (clampedT * (rgbValues.length - 1)) % 1;
-        return interpolateRgb(rgbValues[i], rgbValues[j])(localT);
-      };
+  const colors: any[] = [];
+  for (let i = 0; i < values.length; i++) {
+    const c = rgb(values[i] as string);
+    // Unparseable input yields an Rgb with NaN channels, not null.
+    if (!c || Number.isNaN(c.r) || Number.isNaN(c.g) || Number.isNaN(c.b)) {
+      return null;
     }
-
-    // Try parsing as HSL
-    const hslValues = values.map(v => hsl(v as string));
-    if (hslValues.every(v => v)) {
-      return (t: number) => {
-        const clampedT = Math.min(Math.max(t, 0), 1);
-        if (clampedT === 1) return hslValues[hslValues.length - 1].toString();
-        const i = Math.floor(clampedT * (hslValues.length - 1));
-        const j = Math.min(i + 1, hslValues.length - 1);
-        const localT = (clampedT * (hslValues.length - 1)) % 1;
-        return interpolateHsl(hslValues[i], hslValues[j])(localT);
-      };
-    }
-
-    // Try parsing as LAB
-    const labValues = values.map(v => lab(v as string));
-    if (labValues.every(v => v)) {
-      return (t: number) => {
-        const clampedT = Math.min(Math.max(t, 0), 1);
-        if (clampedT === 1) return labValues[labValues.length - 1].toString();
-        const i = Math.floor(clampedT * (labValues.length - 1));
-        const j = Math.min(i + 1, labValues.length - 1);
-        const localT = (clampedT * (labValues.length - 1)) % 1;
-        return interpolateLab(labValues[i], labValues[j])(localT);
-      };
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Keys on a transition object that are metadata rather than per-property scales.
- */
-const TRANSITION_META_KEYS = new Set(["options", "__raf"]);
-
-/**
- * Drives a single feature's transition with one requestAnimationFrame loop.
- *
- * All properties on the feature are sampled and written in a single
- * `setFeatureState` call per frame, using the timestamp the browser passes to
- * the rAF callback (synchronized to the frame boundary). The loop bails
- * immediately if its transition has been superseded, so an interrupting call
- * that replaces the transition cannot leave a stale loop running.
- *
- * @param {Map} map - The MapLibre map instance
- * @param {any} feature - The feature to animate
- * @param {any} transition - The transition object holding this feature's scales
- * @param {Set<any>} transitionsSet - The set of all active transitions
- * @param {number} now - The frame timestamp (performance.now-based) from rAF
- */
-function animateFeature(
-  map: Map,
-  feature: any,
-  transition: any,
-  transitionsSet: Set<any>,
-  now: number
-) {
-  // Bail out if this transition has been superseded or removed.
-  if (!transitionsSet.has(transition)) return;
-
-  const keys = Object.keys(transition).filter(key => !TRANSITION_META_KEYS.has(key));
-  if (keys.length === 0) {
-    transitionsSet.delete(transition);
-    return;
+    colors.push(c);
   }
 
-  // The transition is done once every property has passed its own end time.
-  let endTime = -Infinity;
-  keys.forEach(key => {
-    endTime = Math.max(endTime, transition[key].__end);
-  });
+  const last = colors[colors.length - 1].toString();
+  if (colors.length === 1) return () => last;
 
-  const target = {
-    source: feature.source,
-    sourceLayer: feature.sourceLayer,
-    id: feature.id,
+  // One interpolator per segment, precomputed.
+  const segments: ((t: number) => string)[] = [];
+  for (let i = 0; i < colors.length - 1; i++) {
+    segments.push(interpolateRgb(colors[i], colors[i + 1]));
+  }
+  const n = segments.length;
+
+  return (t: number) => {
+    const ct = clamp01(t);
+    if (ct === 1) return last;
+    const pos = ct * n;
+    let i = pos | 0;
+    if (i >= n) i = n - 1;
+    return segments[i](pos - i);
   };
-
-  if (now >= endTime) {
-    // Snap to the final value of every property and retire the transition.
-    const finalState: TransitionState = {};
-    keys.forEach(key => {
-      const styleName = key.split("-").slice(1).join("-");
-      finalState[styleName] = transition[key].__final;
-    });
-    map.setFeatureState(target, finalState);
-    transitionsSet.delete(transition);
-
-    const options = transition.options;
-    if (options?.onComplete) {
-      options.onComplete();
-    }
-    return;
-  }
-
-  // Sample every property at this frame's timestamp and write once.
-  const currentState: TransitionState = {};
-  keys.forEach(key => {
-    const styleName = key.split("-").slice(1).join("-");
-    currentState[styleName] = transition[key](now);
-  });
-  map.setFeatureState(target, currentState);
-
-  // A single rAF loop drives every property on this feature.
-  transition.__raf = requestAnimationFrame((frameTime: number) =>
-    animateFeature(map, feature, transition, transitionsSet, frameTime)
-  );
 }
+
+/**
+ * Builds a numeric sampler: a direct piecewise linear interpolation over
+ * `values`, driven by `easeFn` across [start, start + duration].
+ *
+ * Replaces the old d3 `scaleLinear()` path, which allocated ~20 scale methods
+ * onto every sampler via `Object.assign`.
+ *
+ * Guarantees:
+ *  - at t >= start + duration the sampler returns `values[values.length - 1]`
+ *    EXACTLY (so `[10, 30, 10]` lands on 10, not 9.999...).
+ *  - t outside [start, start + duration] is clamped to the endpoint values.
+ *  - `duration <= 0` returns the final value immediately.
+ *
+ * @param {number[]} values - Breakpoint values (2+ for a tween, 1 for a constant)
+ * @param {number} start - Start timestamp, delay included
+ * @param {number} duration - Duration in ms
+ * @param {EaseFn} easeFn - Easing function
+ * @returns {Sampler} The sampler
+ */
+function createNumericSampler(
+  values: number[],
+  start: number,
+  duration: number,
+  easeFn: EaseFn
+): Sampler {
+  const n = values.length;
+  const finalValue = values[n - 1];
+  if (n === 1) return () => finalValue;
+
+  const segments = n - 1;
+
+  return (t: number) => {
+    const progress = duration > 0 ? clamp01((t - start) / duration) : 1;
+    // Easing can overshoot (elastic, back); clamping the eased value reproduces
+    // d3's `.clamp(true)` domain clamping exactly.
+    const eased = clamp01(easeFn(progress));
+    if (eased >= 1) return finalValue;
+    if (eased <= 0) return values[0];
+
+    const pos = eased * segments;
+    let i = pos | 0;
+    if (i >= segments) i = segments - 1;
+    const a = values[i];
+    const b = values[i + 1];
+    return a + (b - a) * (pos - i);
+  };
+}
+
+/**
+ * One animating paint property on one feature.
+ *
+ * `start` already includes the call's `delay`. `key` is the back-compat facade
+ * key (`${featureId}-${style}`) exposed on the object in `map.transition.transitions`.
+ */
+interface Channel {
+  style: string;
+  key: string;
+  sample: Sampler;
+  start: number;
+  end: number;
+  final: string | number;
+  begun: boolean;
+  group: Group;
+}
+
+/**
+ * One `map.transition()` call. Callbacks live here, not on the per-feature
+ * transition object, so a later call on a *different* property can never clobber
+ * an earlier call's `onComplete`.
+ */
+interface Group {
+  options: TransitionOptions | undefined;
+  remaining: number;
+  cancelled: boolean;
+  started: boolean;
+}
+
+/** Per-feature scheduling record. `state` and `target` are allocated once and reused. */
+interface FeatureRecord {
+  key: string;
+  target: { source: string; sourceLayer: string | undefined; id: any };
+  state: TransitionState;
+  channels: Channel[];
+  facade: any;
+  startMin: number;
+  /** 0 = pending (delay not elapsed), 1 = running, -1 = retired/unscheduled */
+  list: 0 | 1 | -1;
+}
+
+/** Internal state hangs off a Symbol so it stays invisible to Object.keys(). */
+const RECORD = Symbol("maplibre-transition:record");
 
 /**
  * Initializes the transition plugin on a MapLibre map instance.
  * This function adds the transition functionality to the map object and sets up
  * the necessary methods and properties.
- * 
- * @param {Map} map - The MapLibre map instance to initialize
+ *
+ * @param {MapLibreMap} map - The MapLibre map instance to initialize
  */
-export function init(map: Map): void {
-  // Create the shared properties object first
+export function init(map: MapLibreMap): void {
+  // ---------------------------------------------------------------------------
+  // Scheduler state (one set per map)
+  // ---------------------------------------------------------------------------
+
+  /** The public Set. One entry per feature with a scheduled-or-running transition. */
+  const transitions = new Set<any>();
+  /** featureKey -> record. Replaces the old O(N) scan of `transitions`. */
+  const byFeature = new Map<string, FeatureRecord>();
+  /** Records actively sampling. */
+  const running: FeatureRecord[] = [];
+  /** Records whose delay has not elapsed. These cost nothing per frame. */
+  const pending: FeatureRecord[] = [];
+  /** `${layerId}\0${kebabStyle}` -> { fallback, installed } (getPaintProperty deep-clones). */
+  const paintFallbacks = new Map<string, { fallback: any; installed: boolean }>();
+  /** Callbacks are queued during a frame and flushed after it, so a re-entrant
+   *  map.transition() from onStart/onComplete cannot mutate arrays mid-iteration. */
+  const callbackQueue: (() => void)[] = [];
+  /** Scratch, reused: channels that finished on the current frame. */
+  const finished: Channel[] = [];
+
+  let rafId: number | null = null;
+
+  // The source is part of the key: the same numeric id in two different sources
+  // is two different features.
+  const featureKey = (f: any): string =>
+    `${f.source}\u0000${f.sourceLayer ?? ""}\u0000${f.id}`;
+
+  // The style may be re-loaded (e.g. a theme swap via setStyle). Paint fallbacks
+  // and "have we installed the coalesce expression" must be re-derived after that.
+  map.on("style.load", () => {
+    paintFallbacks.clear();
+  });
+
+  /**
+   * Cached read of a layer's paint property. `map.getPaintProperty()` deep-clones
+   * the expression on every call, which is unaffordable on a mass trigger.
+   */
+  function getPaintEntry(layerId: string, kebabStyle: string) {
+    const cacheKey = `${layerId}\u0000${kebabStyle}`;
+    let entry = paintFallbacks.get(cacheKey);
+    if (entry !== undefined) return entry;
+
+    const current = map.getPaintProperty(layerId, kebabStyle);
+    if (Array.isArray(current) && current[0] === "coalesce") {
+      // Already ours: the fallback is the third element.
+      entry = { fallback: current[2], installed: true };
+    } else {
+      // A scalar, a plain expression (preserved as the fallback), or undefined.
+      entry = { fallback: current, installed: false };
+    }
+    paintFallbacks.set(cacheKey, entry);
+    return entry;
+  }
+
+  // ---------------------------------------------------------------------------
+  // The single global rAF loop
+  // ---------------------------------------------------------------------------
+
+  function ensureRaf() {
+    if (rafId === null) rafId = requestAnimationFrame(frame);
+  }
+
+  function retire(rec: FeatureRecord) {
+    rec.list = -1;
+    byFeature.delete(rec.key);
+    transitions.delete(rec.facade);
+  }
+
+  /**
+   * Samples one feature and writes ONE setFeatureState for it. Returns false when
+   * the record has no channels left and should be retired.
+   */
+  function step(rec: FeatureRecord, now: number): boolean {
+    const channels = rec.channels;
+    const state = rec.state;
+    let write = 0;
+    let keep = 0;
+
+    for (let i = 0; i < channels.length; i++) {
+      const c = channels[i];
+
+      if (!c.begun) {
+        if (now < c.start) {
+          // Still waiting. Its start value was written once, synchronously, at
+          // call time - there is nothing to do.
+          channels[keep++] = c;
+          continue;
+        }
+        c.begun = true;
+        const g = c.group;
+        if (!g.started) {
+          g.started = true;
+          if (g.options && g.options.onStart) callbackQueue.push(g.options.onStart);
+        }
+      }
+
+      if (now >= c.end) {
+        // Snap to the exact final value, write it this frame, then drop it.
+        state[c.style] = c.final;
+        write++;
+        finished.push(c);
+      } else {
+        state[c.style] = c.sample(now);
+        write++;
+        channels[keep++] = c;
+      }
+    }
+    channels.length = keep;
+
+    if (write > 0) map.setFeatureState(rec.target, state);
+
+    for (let i = 0; i < finished.length; i++) {
+      const c = finished[i];
+      // Stop re-writing a settled property every frame.
+      delete state[c.style];
+      delete rec.facade[c.key];
+      const g = c.group;
+      g.remaining--;
+      if (g.remaining === 0 && !g.cancelled && g.options && g.options.onComplete) {
+        callbackQueue.push(g.options.onComplete);
+      }
+    }
+    finished.length = 0;
+
+    return channels.length > 0;
+  }
+
+  function frame(now: number) {
+    rafId = null;
+
+    // Promote pending -> running. A pending record does zero per-frame work.
+    if (pending.length > 0) {
+      let keep = 0;
+      for (let i = 0; i < pending.length; i++) {
+        const rec = pending[i];
+        // list !== 0 means it was promoted early (a delay-0 call arrived) or retired.
+        if (rec.list !== 0) continue;
+        if (now >= rec.startMin) {
+          rec.list = 1;
+          running.push(rec);
+        } else {
+          pending[keep++] = rec;
+        }
+      }
+      pending.length = keep;
+    }
+
+    // Step every running record, compacting the array in place. No closures, no
+    // per-feature rAF, no per-frame allocation.
+    let keep = 0;
+    for (let i = 0; i < running.length; i++) {
+      const rec = running[i];
+      if (rec.list !== 1) continue;
+      if (step(rec, now)) running[keep++] = rec;
+      else retire(rec);
+    }
+    running.length = keep;
+
+    // Callbacks run after the frame is fully settled, so they may safely start
+    // new transitions (chaining) without corrupting the arrays we just walked.
+    if (callbackQueue.length > 0) {
+      for (let i = 0; i < callbackQueue.length; i++) {
+        try {
+          callbackQueue[i]();
+        } catch (e) {
+          console.error("maplibre-transition: transition callback threw", e);
+        }
+      }
+      callbackQueue.length = 0;
+    }
+
+    // A callback may already have scheduled the next frame via map.transition().
+    if (rafId === null && (running.length > 0 || pending.length > 0)) {
+      rafId = requestAnimationFrame(frame);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public object
+  // ---------------------------------------------------------------------------
+
   const sharedProperties = {
-    /** Set of all active transitions */
-    transitions: new Set<any>(),
+    /** Set of all active transitions: one entry per feature. */
+    transitions,
 
     /**
      * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
      *
-     * @deprecated No longer used internally. Interruptions now start a fresh
-     * transition from the property's current feature-state value to the new
-     * target, which handles colors and multi-breakpoint scales correctly.
-     * This method is retained only for API/type compatibility and does not
-     * support color scales. It will be removed in a future major version.
+     * @deprecated No longer used internally, and no longer compatible with the
+     * samplers this plugin creates (they no longer carry d3 `.domain()`/`.range()`
+     * methods). Interruptions now start a fresh transition from the property's
+     * current feature-state value to the new target, which handles colors and
+     * multi-breakpoint scales correctly. Retained only for API/type compatibility
+     * with callers passing their own d3 scales. It will be removed in a future
+     * major version.
      *
      * @param {any} scale - The original d3 scale to reverse
      * @param {number} currentTime - The current timestamp
@@ -241,25 +442,19 @@ export function init(map: Map): void {
      * @returns {any} A new scale that will transition back to the original value
      */
     reverseScale: (scale: any, currentTime: number, easeFn: any) => {
-      const [startTime, endTime] = scale.domain();
-      const [startValue, endValue] = scale.range();
+      const [startTime] = scale.domain();
+      const [startValue] = scale.range();
 
-      // Calculate how much time has passed in the original transition
       const elapsedTime = currentTime - startTime;
-      const totalDuration = endTime - startTime;
-
-      // Calculate the current value based on elapsed time
       const currentValue = scale(currentTime);
 
-      // Create a new scale that goes from current value back to start value
       const newScale = scaleLinear()
         .domain([currentTime, currentTime + elapsedTime])
         .range([currentValue, startValue]);
 
-      // Wrap the scale with the same easing function
       const wrappedScale = (t: number) => {
         const progress = (t - currentTime) / elapsedTime;
-        const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
+        const easedProgress = easeFn(clamp01(progress));
         return currentValue + easedProgress * (startValue - currentValue);
       };
 
@@ -270,7 +465,7 @@ export function init(map: Map): void {
     /**
      * Lists all active transitions for a specific layer.
      * This is useful for debugging and monitoring transition states.
-     * 
+     *
      * @param {string} layerId - The ID of the layer to check for transitions
      * @returns {any[]} Array of transition objects for the specified layer
      */
@@ -280,220 +475,249 @@ export function init(map: Map): void {
         console.warn(`Layer ${layerId} not found`);
         return [];
       }
-      const sourceId = layer.source;
-      const layerTransitions = Array.from(sharedProperties.transitions).filter(
-        (transition: any) => {
-          const keys = Object.keys(transition);
-          return keys.some((key) => {
-            const feature = map
-              .querySourceFeatures(sourceId)
-              .find((f) => key.startsWith(`${f.id}-`));
-            return feature !== undefined;
-          });
-        }
-      );
-      return layerTransitions;
+      const sourceId = (layer as any).source;
+      const sourceFeatures = map.querySourceFeatures(sourceId);
+      return Array.from(transitions).filter((transition: any) => {
+        const keys = Object.keys(transition);
+        return keys.some((key) =>
+          sourceFeatures.some((f) => key.startsWith(`${f.id}-`))
+        );
+      });
     },
   };
 
-  // Create the transition function
+  // ---------------------------------------------------------------------------
+  // map.transition()
+  // ---------------------------------------------------------------------------
+
   const transitionFunction = function (feature: any, options?: TransitionOptions) {
     const { duration = 1000, delay = 0, ease = "linear" } = options || {};
-    // performance.now() shares its time origin with the rAF timestamp used in
-    // animateFeature, so the start time and every per-frame sample agree.
-    const now = performance.now() + delay;
+    const paintProperties = options?.paint;
+    if (!paintProperties) return;
 
-    // Get all paint properties from the options
-    const paintProperties = options?.paint || {};
+    const styles = Object.keys(paintProperties);
+    if (styles.length === 0) return;
 
-    // Get the current feature state to use as starting values
-    const currentFeatureState = map.getFeatureState({
-      source: feature.source,
-      sourceLayer: feature.sourceLayer,
-      id: feature.id
-    }) || {};
-
-    // Collect default paint values before modifying the paint properties
-    const defaultPaintValues: Record<string, string | number> = {};
-    Object.entries(paintProperties).forEach(([style, values]) => {
-      const kebabStyle = camelToKebab(style);
-      const currentPaint = map.getPaintProperty(feature.layer.id, kebabStyle);
-
-      // Extract the default value - if it's already a coalesce expression, get the fallback
-      if (Array.isArray(currentPaint) && currentPaint[0] === "coalesce") {
-        defaultPaintValues[style] = currentPaint[2];
-      } else if (currentPaint !== undefined && currentPaint !== null) {
-        defaultPaintValues[style] = currentPaint as string | number;
-      } else {
-        // Fallback to first non-null value from the provided values array
-        const firstValidValue = values.find(v => v !== null && v !== undefined);
-        if (firstValidValue !== undefined) {
-          defaultPaintValues[style] = firstValidValue;
-        }
-      }
-    });
-
-    // Set the initial feature state FIRST (before changing paint property to use feature-state)
-    // This prevents a flash of incorrect color when the coalesce expression is first evaluated
-    const initialState: TransitionState = {};
-    Object.entries(paintProperties).forEach(([style, values]) => {
-      const featureStateValue = currentFeatureState[style];
-      const firstNonNullValue = values.find(v => v !== null && v !== undefined);
-      const startValue = featureStateValue !== undefined
-        ? featureStateValue
-        : (defaultPaintValues[style] !== undefined ? defaultPaintValues[style] : firstNonNullValue);
-      if (startValue !== undefined && startValue !== null) {
-        initialState[style] = typeof startValue === 'string' ? startValue : Number(startValue);
-      }
-    });
-    map.setFeatureState(
-      { source: feature.source, sourceLayer: feature.sourceLayer, id: feature.id },
-      initialState
-    );
-
-    // Now set up the layer to use feature state for each style
-    Object.entries(paintProperties).forEach(([style, values]) => {
-      const kebabStyle = camelToKebab(style);
-      const currentPaint = map.getPaintProperty(
-        feature.layer.id,
-        kebabStyle
-      );
-
-      // Only modify the paint property if it's not already using feature state
-      if (!Array.isArray(currentPaint) || currentPaint[0] !== "coalesce") {
-        // Use the current paint value as the fallback, or the first value from the array
-        const fallbackValue = (currentPaint !== undefined && currentPaint !== null)
-          ? currentPaint
-          : (defaultPaintValues[style] ?? values.find(v => v !== null && v !== undefined));
-
-        map.setPaintProperty(feature.layer.id, kebabStyle, [
-          "coalesce",
-          ["feature-state", style],
-          fallbackValue,
-        ]);
-      }
-    });
+    // performance.now() shares its time origin with the rAF timestamp, so the
+    // start time and every per-frame sample agree.
+    const start = performance.now() + delay;
+    const end = start + duration;
 
     const easeName = `ease${
       ease.charAt(0).toUpperCase() + ease.slice(1)
     }` as keyof typeof d3Ease;
-    const easeFn = d3Ease[easeName] || d3Ease.easeLinear;
+    const easeFn = ((d3Ease as any)[easeName] || d3Ease.easeLinear) as EaseFn;
 
-    // Create scales for each property
-    const scales: TransitionScales = {};
-    Object.entries(paintProperties).forEach(([style, values]) => {
-      // Get the starting value: use feature state if available, otherwise use the default paint value
+    const source = feature.source;
+    const sourceLayer = feature.sourceLayer;
+    const id = feature.id;
+    const layerId = feature.layer.id;
+
+    const currentFeatureState =
+      map.getFeatureState({ source, sourceLayer, id }) || {};
+
+    // --- 1. resolve start values -------------------------------------------
+    // The paint fallback is read from the (memoized) layer paint property.
+    const initialState: TransitionState = {};
+    const startValues: (string | number | undefined)[] = new Array(styles.length);
+    const entries: { fallback: any; installed: boolean }[] = new Array(styles.length);
+
+    for (let i = 0; i < styles.length; i++) {
+      const style = styles[i];
+      const values = paintProperties[style];
+      const entry = getPaintEntry(layerId, camelToKebab(style));
+      entries[i] = entry;
+
+      const firstNonNull = values.find((v) => v !== null && v !== undefined);
+      // Only a scalar paint value can seed a numeric/color start; a raw
+      // expression (e.g. a `case`) is preserved as the coalesce fallback but is
+      // not a value we can interpolate from.
+      const scalarDefault =
+        typeof entry.fallback === "string" || typeof entry.fallback === "number"
+          ? entry.fallback
+          : undefined;
+      const defaultValue = scalarDefault !== undefined ? scalarDefault : firstNonNull;
+
       const featureStateValue = currentFeatureState[style];
-      const startValue = featureStateValue !== undefined ? featureStateValue : defaultPaintValues[style];
+      const startValue =
+        featureStateValue !== undefined ? featureStateValue : defaultValue;
+      startValues[i] = startValue as string | number | undefined;
 
-      // Handle null/undefined first values by replacing them with the current state
-      // This allows users to specify [null, targetValue] to mean "from current state to target"
+      if (startValue !== undefined && startValue !== null) {
+        initialState[style] =
+          typeof startValue === "string" ? startValue : Number(startValue);
+      }
+    }
+
+    // --- 2. write the start value ONCE, synchronously -----------------------
+    // This happens BEFORE the paint property is rewritten, so the coalesce
+    // expression never evaluates against an empty feature state (no flash). It
+    // is also what makes `delay` free: the feature already looks right while it
+    // waits, and no frame work accrues until its start time arrives.
+    map.setFeatureState({ source, sourceLayer, id }, initialState);
+
+    // --- 3. install the coalesce paint expressions (once per layer+property) -
+    for (let i = 0; i < styles.length; i++) {
+      const entry = entries[i];
+      if (entry.installed) continue;
+      const style = styles[i];
+      const values = paintProperties[style];
+      const fallbackValue =
+        entry.fallback !== undefined && entry.fallback !== null
+          ? entry.fallback
+          : values.find((v) => v !== null && v !== undefined);
+
+      map.setPaintProperty(layerId, camelToKebab(style), [
+        "coalesce",
+        ["feature-state", style],
+        fallbackValue,
+      ]);
+      entry.installed = true;
+    }
+
+    // --- 4. build the channels ----------------------------------------------
+    const group: Group = {
+      options,
+      remaining: styles.length,
+      cancelled: false,
+      started: false,
+    };
+    const channels: Channel[] = new Array(styles.length);
+
+    for (let i = 0; i < styles.length; i++) {
+      const style = styles[i];
+      const values = paintProperties[style];
+      const startValue = startValues[i];
+
+      // A leading null/undefined means "from wherever the property is right now".
+      // Because every new sampler starts from the feature's *current* state,
+      // interrupting a running transition simply continues from there - no
+      // reverse scale required.
       const firstValue = values[0];
       let effectiveValues: (string | number)[];
 
       if (firstValue === null || firstValue === undefined) {
-        // Replace null/undefined with current state, keep the rest
-        if (startValue !== undefined) {
-          effectiveValues = [startValue, ...values.slice(1)];
-        } else if (defaultPaintValues[style] !== undefined) {
-          // Fall back to paint property default if feature state not found
-          effectiveValues = [defaultPaintValues[style], ...values.slice(1)];
+        if (startValue !== undefined && startValue !== null) {
+          effectiveValues = [startValue, ...(values.slice(1) as (string | number)[])];
         } else {
-          // Last resort: use target value as start to avoid single-value array (creates no-op)
+          // Last resort: use the target as the start (a no-op tween) rather than
+          // producing a single-value array.
           const targetValue = values[1];
-          effectiveValues = targetValue !== undefined
-            ? [targetValue, ...values.slice(1)]
-            : values.slice(1);
+          effectiveValues =
+            targetValue !== undefined && targetValue !== null
+              ? [targetValue, ...(values.slice(1) as (string | number)[])]
+              : (values.slice(1) as (string | number)[]);
         }
       } else {
-        // Only prepend the starting value if it's different from the first value in the array
-        // This avoids duplicating values when the user explicitly provides the start value
-        const startsDifferent = startValue !== undefined && startValue !== firstValue &&
-          (typeof startValue !== 'number' || typeof firstValue !== 'number' || startValue !== Number(firstValue));
-        effectiveValues = startsDifferent ? [startValue, ...values] : values;
+        // Only prepend the current value if it actually differs from the
+        // explicit first value, so the user's own start value isn't duplicated.
+        const startsDifferent =
+          startValue !== undefined &&
+          startValue !== null &&
+          startValue !== firstValue &&
+          (typeof startValue !== "number" ||
+            typeof firstValue !== "number" ||
+            startValue !== Number(firstValue));
+        effectiveValues = startsDifferent
+          ? [startValue, ...(values as (string | number)[])]
+          : (values as (string | number)[]);
       }
 
+      let sample: Sampler;
       const colorInterpolator = getColorInterpolator(effectiveValues);
-
       if (colorInterpolator) {
-        // Use color interpolation for color values
-        const wrappedScale = (t: number) => {
-          const progress = (t - now) / duration;
-          const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-          return colorInterpolator(easedProgress);
+        sample = (t: number) => {
+          const progress = duration > 0 ? clamp01((t - start) / duration) : 1;
+          return colorInterpolator(easeFn(progress));
         };
-        Object.assign(wrappedScale, scaleLinear().domain([now, now + duration]).range([0, 1]).clamp(true));
-        // Record the true end time and final value directly on the scale, so the
-        // completion path never has to re-derive them from a numeric range.
-        (wrappedScale as any).__end = now + duration;
-        (wrappedScale as any).__final = wrappedScale(now + duration);
-        scales[`${feature.id}-${style}`] = wrappedScale;
       } else {
-        // Use regular linear interpolation for non-color values
-        const numericValues = effectiveValues.map(v => Number(v));
-
-        // Create domain points that match the number of range values
-        // For multi-breakpoint arrays like [10, 30, 10], we need matching domain points
-        const domainPoints = numericValues.map((_, i) =>
-          now + (duration * i) / (numericValues.length - 1)
-        );
-
-        const scale = scaleLinear()
-          .domain(domainPoints)
-          .range(numericValues)
-          .clamp(true);
-
-        const wrappedScale = (t: number) => {
-          const progress = (t - now) / duration;
-          const easedProgress = easeFn(Math.min(Math.max(progress, 0), 1));
-          return scale(now + easedProgress * duration);
-        };
-
-        Object.assign(wrappedScale, scale);
-        (wrappedScale as any).__end = now + duration;
-        (wrappedScale as any).__final = wrappedScale(now + duration);
-        scales[`${feature.id}-${style}`] = wrappedScale;
+        const numericValues: number[] = new Array(effectiveValues.length);
+        for (let k = 0; k < effectiveValues.length; k++) {
+          numericValues[k] = Number(effectiveValues[k]);
+        }
+        sample = createNumericSampler(numericValues, start, duration, easeFn);
       }
-    });
 
-    // Merge these scales into this feature's transition, or start a fresh one.
-    // Because each new scale already starts from the feature's *current* state
-    // (see the effective-values handling above), interrupting a running
-    // transition simply continues from wherever the property is right now —
-    // no reverse scale required.
-    const existing = Array.from(sharedProperties.transitions).find(
-      (t) => Object.keys(t).some(
-        key => !TRANSITION_META_KEYS.has(key) && key.startsWith(`${feature.id}-`)
-      )
-    );
-
-    let activeTransition: any;
-    if (existing) {
-      // Cancel the in-flight frame and carry forward any properties this call
-      // doesn't touch, so independent transitions on the same feature coexist.
-      if (existing.__raf !== undefined) cancelAnimationFrame(existing.__raf);
-      sharedProperties.transitions.delete(existing);
-
-      activeTransition = {};
-      Object.keys(existing).forEach(key => {
-        if (!TRANSITION_META_KEYS.has(key)) activeTransition[key] = existing[key];
-      });
-      Object.assign(activeTransition, scales);
-      activeTransition.options = options;
-    } else {
-      activeTransition = { ...scales, options };
+      channels[i] = {
+        style,
+        key: `${id}-${style}`,
+        sample,
+        start,
+        end,
+        final: sample(end),
+        begun: false,
+        group,
+      };
     }
 
-    sharedProperties.transitions.add(activeTransition);
+    // --- 5. merge into this feature's record --------------------------------
+    const fKey = featureKey(feature);
+    let rec = byFeature.get(fKey);
 
-    if (options?.onStart) {
-      options.onStart();
+    if (rec === undefined) {
+      const facade: any = {};
+      rec = {
+        key: fKey,
+        target: { source, sourceLayer, id },
+        state: {},
+        channels: [],
+        facade,
+        startMin: start,
+        list: -1,
+      };
+      facade[RECORD] = rec;
+      byFeature.set(fKey, rec);
+      transitions.add(facade);
     }
 
-    // A single rAF loop drives every property on this feature.
-    activeTransition.__raf = requestAnimationFrame((frameTime: number) =>
-      animateFeature(map, feature, activeTransition, sharedProperties.transitions, frameTime)
-    );
+    const existingChannels = rec.channels;
+    for (let i = 0; i < channels.length; i++) {
+      const c = channels[i];
+      // Supersede any in-flight channel for the same property. Its whole group
+      // is cancelled: that call's onComplete must never fire.
+      for (let j = 0; j < existingChannels.length; j++) {
+        if (existingChannels[j].style === c.style) {
+          const old = existingChannels[j].group;
+          old.cancelled = true;
+          old.remaining--;
+          existingChannels.splice(j, 1);
+          break;
+        }
+      }
+      existingChannels.push(c);
+      rec.facade[c.key] = c.sample;
+    }
+
+    // --- 6. schedule ---------------------------------------------------------
+    if (rec.list === -1) {
+      if (delay > 0) {
+        rec.startMin = start;
+        rec.list = 0;
+        pending.push(rec);
+      } else {
+        rec.startMin = start;
+        rec.list = 1;
+        running.push(rec);
+      }
+    } else if (rec.list === 0) {
+      if (delay > 0) {
+        if (start < rec.startMin) rec.startMin = start;
+      } else {
+        // A delay-0 call on a pending record promotes it immediately. The stale
+        // reference left in `pending` is dropped on the next promotion pass.
+        rec.list = 1;
+        running.push(rec);
+      }
+    }
+
+    ensureRaf();
+
+    // onStart fires synchronously only when there is no delay; otherwise it fires
+    // on the frame the transition actually begins (see step()).
+    if (delay <= 0) {
+      group.started = true;
+      if (options?.onStart) options.onStart();
+    }
   };
 
   // Assign both map.T and map.transition with the same functionality
@@ -510,4 +734,4 @@ export default {
 };
 
 // Export internal functions for testing
-export { camelToKebab, getColorInterpolator };
+export { camelToKebab, getColorInterpolator, createNumericSampler };

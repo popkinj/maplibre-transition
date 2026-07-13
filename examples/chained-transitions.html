@@ -3,48 +3,155 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chained Transitions - MapLibre Transition</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+  <title>Chained Transitions — maplibre-transition</title>
+  <script>
+    (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+    if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+    var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
   <link rel="stylesheet" href="styles/shared.css">
-  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+  <style>
+    /* `hidden` must beat the .btn display:block in shared.css. */
+    [hidden] { display: none !important; }
+
+    /* shared.css gives .panel-head `background: inherit`, i.e. the translucent --glass;
+       this panel scrolls (the timeline is tall), and scrolled content shows straight
+       through the sticky rail. Opaque surface here until shared.css is fixed. */
+    .panel-head { background: var(--surface); }
+
+    #map { cursor: crosshair; }
+
+    /* The chain timeline: one row per map.transition() call, in order. */
+    .timeline {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .timeline .step {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.35rem 0.9rem 0.35rem 0.5rem;
+      border-left: 3px solid transparent;
+      border-top: 1px solid var(--hairline);
+      color: var(--ink-muted);
+      scroll-margin: 0.5rem;
+    }
+
+    .timeline .step:first-child { border-top: none; }
+
+    .timeline .step[data-state="running"] {
+      border-left-color: var(--ramp-3);
+      background: linear-gradient(var(--grid), var(--grid));
+      color: var(--ink);
+    }
+
+    .timeline .step[data-state="done"] { border-left-color: var(--ok); }
+
+    .step-idx {
+      flex: 0 0 1.1rem;
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      line-height: 1.4;
+      text-align: right;
+      opacity: 0.75;
+    }
+
+    .step-body { min-width: 0; flex: 1; }
+
+    .step-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .step-name {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: -0.01em;
+    }
+
+    .step-ease {
+      font-family: var(--font-mono);
+      font-size: 0.64rem;
+      color: var(--ink-muted);
+      white-space: nowrap;
+    }
+
+    .step-paint {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.63rem;
+      line-height: 1.45;
+      color: var(--ink-muted);
+      word-break: break-word;
+    }
+
+    .timeline .step[data-state="running"] .step-paint { color: var(--ink); }
+
+    .step-paint .to { color: var(--ramp-3); }
+    .timeline .step[data-state="done"] .step-paint .to { color: var(--ok); }
+  </style>
 </head>
 <body>
-  <header>
-    <div class="header-content">
-      <a href="./" class="logo">
-        <div class="logo-icon">T</div>
-        <h1>MapLibre Transition</h1>
-      </a>
-      <nav>
-        <a href="./">Examples</a>
-        <a href="https://github.com/popkinj/maplibre-transition" target="_blank">GitHub</a>
-      </nav>
-    </div>
-  </header>
-
   <main>
     <div class="example-container">
       <div class="map-container">
         <div id="map" data-testid="map-container"></div>
         <div class="controls">
           <h2>Chained Transitions</h2>
-          <p>Select a chain type, then click on a Canadian city to see sequential animations.</p>
+          <p>
+            Every step fires from the previous step's <span class="paint-prop">onComplete</span>.
+            No timers. Click a city, or run the chain on the selected one.
+          </p>
 
           <div class="control-group">
-            <label>Chain Type</label>
+            <label><span class="paint-prop">chain</span></label>
             <select id="chain-type" data-testid="chain-type-select">
-              <option value="simple">Simple Chain (2 steps)</option>
-              <option value="complex">Complex Chain (4 steps)</option>
-              <option value="loop">Continuous Loop</option>
+              <option value="simple">simple — 2 steps</option>
+              <option value="complex">complex — 4 steps</option>
+              <option value="loop">loop — repeats until stopped</option>
             </select>
           </div>
 
           <div class="control-group">
-            <label>Step Duration: <span class="value-display" id="duration-value">800ms</span></label>
+            <label>
+              <span class="paint-prop">duration</span>
+              <span class="value-display" id="duration-value" data-testid="duration-value">800ms</span>
+            </label>
             <input type="range" id="duration" data-testid="duration-slider" min="300" max="2000" value="800" step="100">
           </div>
 
-          <button id="stop" data-testid="stop-button" style="background: var(--secondary-color); display: none;">Stop Loop</button>
+          <div class="control-group">
+            <button id="run" class="btn" data-testid="run-button">Run chain</button>
+            <button id="stop" class="btn ghost" data-testid="stop-button" hidden style="margin-top: 0.4rem;">Stop loop</button>
+          </div>
+
+          <div class="readout">
+            <div class="row">
+              <span>target</span>
+              <span id="target-name" data-testid="target-name">Ottawa</span>
+            </div>
+            <div class="row">
+              <span>status</span>
+              <span id="status" data-testid="chain-status">idle</span>
+            </div>
+            <div class="row">
+              <span>laps</span>
+              <span id="laps" data-testid="lap-count">0</span>
+            </div>
+            <div class="row">
+              <span>animating</span>
+              <span id="active-count" data-testid="active-count">0</span>
+            </div>
+          </div>
+
+          <ol class="timeline" id="timeline" data-testid="chain-timeline"></ol>
         </div>
       </div>
     </div>
@@ -53,32 +160,356 @@
   <script type="module">
     import MaplibreTransition from '../dist/index.esm.js';
     import { canadianCapitalCities } from './data/canadian-cities.js';
+    import { initialTheme, currentTheme } from './scripts/theme.js';
+    import { mountChrome } from './scripts/chrome.js';
+    import { loadBasemap, applyBasemap } from './scripts/basemap.js';
+    import { frameMeter, mountFrameRail } from './scripts/perf.js';
+
+    mountChrome({ title: 'Chained Transitions', kicker: '{ onComplete }' });
+
+    /* The resting style — the layer's paint spec is built from it, and the last step of
+       every chain returns to it with [null, target]. */
+    const REST = {
+      light: {
+        'circle-radius': 9,
+        'circle-color': '#26547c',
+        'circle-opacity': 0.85,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#f7f6f2'
+      },
+      dark: {
+        'circle-radius': 9,
+        'circle-color': '#2a9d8f',
+        'circle-opacity': 0.9,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#0d1517'
+      }
+    };
+
+    const HOT = '#f4703a';   // --ramp-3
+    const GOLD = '#e9c46a';  // --ramp-2
+    const COOL = '#2a9d8f';  // --ramp-1
+
+    /**
+     * Resting values as [null, target] tweens. With no `props`, every resting property —
+     * which is what a release needs, since it must supersede whatever is in flight.
+     * With `props`, only those: a chain's settle step resets exactly what it disturbed.
+     */
+    const restPaint = (theme, props) => {
+      const rest = REST[theme];
+      const paint = {};
+      for (const prop of props || Object.keys(rest)) paint[prop] = [null, rest[prop]];
+      return paint;
+    };
+
+    /* ---------------------------------------------------------------------
+       The chains. Declarative: the timeline in the panel is rendered from
+       exactly these objects, so what you read is what gets called.
+       --------------------------------------------------------------------- */
+    const CHAINS = {
+      simple: [
+        {
+          name: 'grow',
+          ease: 'cubic',
+          paint: () => ({ 'circle-radius': [null, 30], 'circle-color': [null, HOT] })
+        },
+        {
+          name: 'settle',
+          ease: 'bounce',
+          rest: true      // resets exactly the properties the steps above touched
+        }
+      ],
+      complex: [
+        {
+          name: 'grow',
+          ease: 'quad',
+          paint: () => ({
+            'circle-radius': [null, 34],
+            'circle-color': [null, HOT],
+            'circle-opacity': [null, 1]
+          })
+        },
+        {
+          name: 'ring',
+          ease: 'linear',
+          paint: () => ({
+            'circle-stroke-width': [null, 6],
+            'circle-stroke-color': [null, GOLD]
+          })
+        },
+        {
+          name: 'cool',
+          ease: 'cubic',
+          paint: () => ({ 'circle-radius': [null, 18], 'circle-color': [null, COOL] })
+        },
+        {
+          name: 'settle',
+          ease: 'elastic',
+          rest: true
+        }
+      ],
+      loop: [
+        {
+          name: 'swell',
+          ease: 'sin',
+          paint: () => ({
+            'circle-radius': [null, 28],
+            'circle-color': [null, HOT],
+            'circle-opacity': [null, 1]
+          })
+        },
+        {
+          name: 'ebb',
+          ease: 'sin',
+          rest: true
+        }
+      ]
+    };
+
+    const theme0 = initialTheme();
 
     const map = new maplibregl.Map({
       container: 'map',
-      style: 'https://demotiles.maplibre.org/style.json',
-      center: [-95, 60],
-      zoom: 3
+      style: await loadBasemap(theme0),
+      center: [-96, 58],
+      zoom: 3,
+      attributionControl: { compact: true }
     });
 
     MaplibreTransition.init(map);
 
-    // Expose test hooks for Playwright
-    window.__testHooks = {
-      map: map,
-      getTransitionCount: () => map.transition.transitions.size,
-      waitForLoad: () => new Promise(resolve => {
-        if (map.loaded()) resolve();
-        else map.once('load', resolve);
-      })
-    };
+    const meter = frameMeter();
 
-    let isLooping = false;
-    let stopLoop = false;
-    let loopingFeature = null;
+    const chainTypeSelect = document.getElementById('chain-type');
+    const durationSlider = document.getElementById('duration');
+    const durationValue = document.getElementById('duration-value');
+    const runBtn = document.getElementById('run');
+    const stopBtn = document.getElementById('stop');
+    const timelineEl = document.getElementById('timeline');
+    const targetNameEl = document.getElementById('target-name');
+    const statusEl = document.getElementById('status');
+    const lapsEl = document.getElementById('laps');
+    const activeCountEl = document.getElementById('active-count');
+
+    const durationMs = () => parseInt(durationSlider.value, 10);
+
+    durationSlider.addEventListener('input', () => {
+      durationValue.textContent = `${durationSlider.value}ms`;
+      renderTimeline();
+    });
+
+    /* ---------------------------------------------------------------------
+       Timeline
+       --------------------------------------------------------------------- */
+    let stepStates = [];
+
+    const fmt = (v) =>
+      v === null ? 'null' : typeof v === 'string' ? `'${v}'` : String(v);
+
+    /**
+     * The paint object for step `i` of `steps`. A `rest: true` step resets exactly the
+     * properties the steps before it disturbed — nothing more, so the chain leaves the
+     * feature the way it found it without touching properties it never animated.
+     * The timeline renders from this same function, so the panel cannot lie.
+     */
+    function stepPaint(steps, i, theme) {
+      const step = steps[i];
+      if (!step.rest) return step.paint(theme);
+
+      const touched = [];
+      for (let k = 0; k < i; k++) {
+        for (const prop of Object.keys(stepPaint(steps, k, theme))) {
+          if (!touched.includes(prop)) touched.push(prop);
+        }
+      }
+      return restPaint(theme, touched);
+    }
+
+    function renderTimeline() {
+      const steps = CHAINS[chainTypeSelect.value];
+      const theme = currentTheme();
+      if (stepStates.length !== steps.length) {
+        stepStates = steps.map(() => 'idle');
+      }
+
+      timelineEl.innerHTML = '';
+      steps.forEach((step, i) => {
+        const paint = stepPaint(steps, i, theme);
+        const li = document.createElement('li');
+        li.className = 'step';
+        li.dataset.state = stepStates[i];
+        li.setAttribute('data-testid', `chain-step-${i}`);
+
+        const lines = Object.entries(paint)
+          .map(([prop, values]) => {
+            const target = fmt(values[values.length - 1]);
+            return `<span>${prop}: [${fmt(values[0])}, <span class="to">${target}</span>]</span>`;
+          })
+          .join('<br>');
+
+        li.innerHTML =
+          `<span class="step-idx">${i + 1}</span>` +
+          `<div class="step-body">` +
+          `<div class="step-head"><span class="step-name">${step.name}</span>` +
+          `<span class="step-ease">ease: ${step.ease}</span></div>` +
+          `<code class="step-paint">${lines}</code>` +
+          `</div>`;
+
+        timelineEl.appendChild(li);
+      });
+    }
+
+    /** Keep the running step visible when the timeline is taller than the panel. */
+    const controlsEl = document.querySelector('.controls');
+
+    function ensureVisible(li) {
+      if (!li || controlsEl.scrollHeight <= controlsEl.clientHeight) return;
+      const top = li.offsetTop;
+      const bottom = top + li.offsetHeight;
+      if (top < controlsEl.scrollTop) {
+        controlsEl.scrollTop = top - 8;
+      } else if (bottom > controlsEl.scrollTop + controlsEl.clientHeight) {
+        controlsEl.scrollTop = bottom - controlsEl.clientHeight + 8;
+      }
+    }
+
+    /** Every highlight change, in order. Read by the e2e spec; free otherwise. */
+    const stateLog = [];
+
+    function setStepState(i, state) {
+      stepStates[i] = state;
+      const li = timelineEl.children[i];
+      if (li) {
+        li.dataset.state = state;
+        if (state === 'running') ensureVisible(li);
+      }
+      stateLog.push(`${i}:${state}`);
+    }
+
+    function resetSteps() {
+      stepStates = stepStates.map(() => 'idle');
+      for (const li of timelineEl.children) li.dataset.state = 'idle';
+    }
+
+    /* ---------------------------------------------------------------------
+       The chain runner. One map.transition() per step; the next step is fired
+       from onComplete. Nothing else drives it.
+       --------------------------------------------------------------------- */
+    let target = { id: 0, source: 'cities', layer: { id: 'cities-layer' } };
+    let run = null;          // { feature, steps, i, loop, cancelled }
+    const stepLog = [];      // for tests: the order steps actually fired in
+
+    function setStatus(s) {
+      statusEl.textContent = s;
+    }
+
+    /** Send a feature home from wherever it got to. Supersedes every channel it owns. */
+    function releaseToRest(feature, onComplete) {
+      map.transition(feature, {
+        duration: 260,
+        ease: 'cubic',
+        paint: restPaint(currentTheme()),
+        onComplete
+      });
+    }
+
+    function startChain(feature) {
+      if (run) {
+        // Cancel the old chain and send its city home. If it is the same city, step 1
+        // below immediately supersedes the properties it also animates; the ones it
+        // does not (a leftover stroke, say) still tidy themselves up.
+        run.cancelled = true;
+        releaseToRest(run.feature);
+      }
+
+      const type = chainTypeSelect.value;
+      const steps = CHAINS[type];
+
+      stepStates = steps.map(() => 'idle');
+      renderTimeline();
+
+      run = { feature, steps, i: 0, loop: type === 'loop', cancelled: false, laps: 0 };
+      lapsEl.textContent = '0';
+      stopBtn.hidden = !run.loop;
+      advance();
+    }
+
+    function advance() {
+      const r = run;
+      if (!r || r.cancelled) return;
+
+      if (r.i >= r.steps.length) {
+        if (!r.loop) {
+          run = null;
+          setStatus('idle');
+          return;
+        }
+        r.laps++;
+        lapsEl.textContent = r.laps;
+        r.i = 0;
+        resetSteps();
+      }
+
+      const idx = r.i++;
+      const step = r.steps[idx];
+
+      setStepState(idx, 'running');
+      stepLog.push(idx);
+      setStatus(r.loop ? `looping ${idx + 1}/${r.steps.length}` : `step ${idx + 1}/${r.steps.length}`);
+
+      map.transition(r.feature, {
+        duration: durationMs(),
+        ease: step.ease,
+        // Exactly what the timeline row above is showing — same function, one source.
+        paint: stepPaint(r.steps, idx, currentTheme()),
+        // The whole chain, right here. onComplete fires once, when every property of
+        // THIS call has landed — and never fires if a later call superseded it, which
+        // is exactly how `stop` and a re-click cancel the chain for free.
+        onComplete: () => {
+          if (run !== r || r.cancelled) return;
+          setStepState(idx, 'done');
+          advance();
+        }
+      });
+    }
+
+    function stopChain() {
+      const r = run;
+      if (!r) return;
+
+      r.cancelled = true;
+      run = null;
+      stopBtn.hidden = true;
+      setStatus('stopping');
+
+      // Release to rest. This supersedes every channel the in-flight step owns, so that
+      // step's onComplete never fires and the chain cannot re-arm itself. The `cancelled`
+      // flag above is belt and braces — supersession alone already stops the loop.
+      releaseToRest(r.feature, () => {
+        if (run) return;   // a new chain started in the meantime
+        resetSteps();
+        setStatus('idle');
+      });
+    }
+
+    runBtn.addEventListener('click', () => startChain(target));
+    stopBtn.addEventListener('click', stopChain);
+    chainTypeSelect.addEventListener('change', () => {
+      if (run) stopChain();
+      stepStates = [];
+      renderTimeline();
+    });
+
+    /* ---------------------------------------------------------------------
+       Map
+       --------------------------------------------------------------------- */
+    const cities = canadianCapitalCities.features.map((_, i) => ({
+      id: i,
+      source: 'cities',
+      layer: { id: 'cities-layer' }
+    }));
 
     map.on('load', () => {
-      // Add Canadian cities
       map.addSource('cities', {
         type: 'geojson',
         data: canadianCapitalCities,
@@ -89,163 +520,73 @@
         id: 'cities-layer',
         type: 'circle',
         source: 'cities',
-        paint: {
-          'circle-radius': 15,
-          'circle-color': '#0066cc',
-          'circle-opacity': 0.7,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
-        }
+        paint: { ...REST[theme0] }
       });
 
-      const chainTypeSelect = document.getElementById('chain-type');
-      const durationSlider = document.getElementById('duration');
-      const durationValue = document.getElementById('duration-value');
-      const stopBtn = document.getElementById('stop');
-
-      durationSlider.addEventListener('input', (e) => {
-        durationValue.textContent = `${e.target.value}ms`;
-      });
-
-      function simpleChain(feature, duration) {
-        // Step 1: Grow and turn red
-        map.transition(feature, {
-          duration: duration,
-          ease: 'cubic',
-          paint: {
-            'circle-radius': [15, 30],
-            'circle-color': ['#0066cc', '#ff0000']
-          },
-          onComplete: () => {
-            // Step 2: Shrink and turn back to blue
-            map.transition(feature, {
-              duration: duration,
-              ease: 'bounce',
-              paint: {
-                'circle-radius': [30, 15],
-                'circle-color': ['#ff0000', '#0066cc']
-              }
-            });
-          }
-        });
-      }
-
-      function complexChain(feature, duration) {
-        // Step 1: Grow and turn red
-        map.transition(feature, {
-          duration: duration,
-          ease: 'quad',
-          paint: {
-            'circle-radius': [15, 35],
-            'circle-color': ['#0066cc', '#ff0000'],
-            'circle-opacity': [0.7, 1]
-          },
-          onComplete: () => {
-            // Step 2: Turn green
-            map.transition(feature, {
-              duration: duration,
-              ease: 'linear',
-              paint: {
-                'circle-color': ['#ff0000', '#00ff00'],
-                'circle-stroke-width': [2, 5]
-              },
-              onComplete: () => {
-                // Step 3: Turn yellow and shrink
-                map.transition(feature, {
-                  duration: duration,
-                  ease: 'cubic',
-                  paint: {
-                    'circle-radius': [35, 20],
-                    'circle-color': ['#00ff00', '#ffff00']
-                  },
-                  onComplete: () => {
-                    // Step 4: Return to original
-                    map.transition(feature, {
-                      duration: duration,
-                      ease: 'elastic',
-                      paint: {
-                        'circle-radius': [20, 15],
-                        'circle-color': ['#ffff00', '#0066cc'],
-                        'circle-opacity': [1, 0.7],
-                        'circle-stroke-width': [5, 2]
-                      }
-                    });
-                  }
-                });
-              }
-            });
-          }
-        });
-      }
-
-      function continuousLoop(feature, duration) {
-        if (stopLoop || loopingFeature !== feature) {
-          if (loopingFeature === feature) {
-            stopLoop = false;
-            isLooping = false;
-            loopingFeature = null;
-            stopBtn.style.display = 'none';
-          }
-          return;
-        }
-
-        map.transition(feature, {
-          duration: duration,
-          ease: 'sin',
-          paint: {
-            'circle-radius': [15, 30, 15],
-            'circle-color': ['#0066cc', '#ff1493', '#0066cc'],
-            'circle-opacity': [0.7, 1, 0.7]
-          },
-          onComplete: () => {
-            if (isLooping && !stopLoop && loopingFeature === feature) {
-              continuousLoop(feature, duration);
-            }
-          }
-        });
-      }
-
-      // Click handler for cities - animate directly
-      map.on('click', 'cities-layer', (e) => {
-        const feature = e.features[0];
-        const duration = parseInt(durationSlider.value);
-        const chainType = chainTypeSelect.value;
-
-        // If currently looping, stop the loop
-        if (isLooping) {
-          stopLoop = true;
-          isLooping = false;
-          loopingFeature = null;
-          stopBtn.style.display = 'none';
-        }
-
-        if (chainType === 'simple') {
-          simpleChain(feature, duration);
-        } else if (chainType === 'complex') {
-          complexChain(feature, duration);
-        } else if (chainType === 'loop') {
-          isLooping = true;
-          stopLoop = false;
-          loopingFeature = feature;
-          stopBtn.style.display = 'block';
-          continuousLoop(feature, duration);
-        }
-      });
-
-      stopBtn.addEventListener('click', () => {
-        stopLoop = true;
-        stopBtn.style.display = 'none';
-      });
-
-      // Change cursor on hover
-      map.on('mouseenter', 'cities-layer', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-
-      map.on('mouseleave', 'cities-layer', () => {
-        map.getCanvas().style.cursor = '';
-      });
+      mountFrameRail(document.querySelector('.frame-rail'), meter);
     });
+
+    map.on('click', 'cities-layer', (e) => {
+      const feature = e.features[0];
+      target = feature;
+      targetNameEl.textContent = feature.properties.name;
+      startChain(feature);
+    });
+
+    map.on('mouseenter', 'cities-layer', () => {
+      map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'cities-layer', () => {
+      map.getCanvas().style.cursor = '';
+    });
+
+    renderTimeline();
+
+    let lastActive = -1;
+    setInterval(() => {
+      const active = map.transition.transitions.size;
+      if (active !== lastActive) {
+        lastActive = active;
+        activeCountEl.textContent = active;
+      }
+    }, 60);
+
+    /* ---------------------------------------------------------------------
+       Theme: swap the basemap under the live map, then recolour the circles with
+       map.transition — never setPaintProperty (CONTRACTS §1). A chain in flight
+       keeps running straight through the swap.
+       --------------------------------------------------------------------- */
+    window.addEventListener('themechange', async (e) => {
+      const theme = e.detail.theme;
+      await applyBasemap(map, theme);
+
+      const rest = REST[theme];
+      const paint = {
+        'circle-color': [null, rest['circle-color']],
+        'circle-stroke-color': [null, rest['circle-stroke-color']]
+      };
+      const running = run ? run.feature.id : null;
+      for (const city of cities) {
+        // Don't stomp the colour channel of the step that is running right now — that
+        // would supersede it and silently break the chain.
+        if (running !== null && city.id === running) continue;
+        map.transition(city, { duration: 320, ease: 'cubic', paint });
+      }
+
+      renderTimeline();
+    });
+
+    window.__testHooks = {
+      map,
+      getTransitionCount: () => map.transition.transitions.size,
+      waitForLoad: () => new Promise((resolve) => {
+        if (map.loaded()) resolve();
+        else map.once('load', resolve);
+      }),
+      stepLog,
+      stateLog,
+      isRunning: () => run !== null
+    };
   </script>
 </body>
 </html>

@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color &amp; Breakpoints — maplibre-transition</title>
+    <script>
+      (function(){var t=null;try{t=localStorage.getItem("mlt-theme")}catch(e){}
+      if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+      var r=document.documentElement;r.setAttribute("data-theme",t);r.style.colorScheme=t})();
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="./styles/shared.css" />
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+
+    <style>
+      /* ----------------------------------------------------------------
+         Page-local: the breakpoint editor. Tokens only, no literal colors.
+         ---------------------------------------------------------------- */
+
+      /* The interpolation preview. A CSS linear-gradient interpolates in sRGB,
+         which is exactly what d3-interpolate's interpolateRgb does — so this
+         strip is a faithful preview of the transition, not an approximation. */
+      .ramp {
+        height: 16px;
+        border: 1px solid var(--hairline);
+        border-radius: 3px;
+        margin-bottom: 0.55rem;
+      }
+
+      .stop-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .stop-row {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .stop-row .stop-idx {
+        width: 1.1rem;
+        flex: 0 0 auto;
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        color: var(--ink-muted);
+      }
+
+      .stop-row input[type="color"] {
+        flex: 1 1 auto;
+        height: 26px;
+        min-width: 0;
+      }
+
+      .stop-row input[type="number"] {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 0.28rem 0.4rem;
+      }
+
+      .stop-row .stop-hex {
+        flex: 0 0 auto;
+        width: 4.5rem;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--ink);
+      }
+
+      /* shared.css makes every <button> inside .control-group a full-width
+         accent button. These are icons, and the presets are chips. */
+      .controls .control-group .icon-btn {
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        line-height: 1;
+        color: var(--ink-muted);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .controls .control-group .icon-btn:hover:not(:disabled) {
+        color: var(--ink);
+        background: var(--surface-2);
+        filter: none;
+        transform: none;
+      }
+
+      .controls .control-group .icon-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      .controls .control-group .chip {
+        display: inline-flex;
+        width: auto;
+        padding: 0.26rem 0.5rem;
+        font-family: var(--font-mono);
+        font-weight: 400;
+        font-size: 0.7rem;
+        color: var(--ink-muted);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        border-radius: 999px;
+      }
+
+      .controls .control-group .chip:hover {
+        color: var(--ink);
+        background: var(--surface-2);
+        filter: none;
+      }
+
+      .controls .control-group .chip[aria-pressed="true"] {
+        color: var(--accent-ink);
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .stops-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-top: 0.45rem;
+      }
+
+      .controls .control-group .add-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        width: auto;
+        padding: 0.24rem 0.55rem;
+        font-family: var(--font-mono);
+        font-weight: 400;
+        font-size: 0.7rem;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-sm);
+      }
+
+      .controls .control-group .add-btn:hover:not(:disabled) {
+        background: var(--surface-2);
+        filter: none;
+      }
+
+      .stop-hint {
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        color: var(--ink-muted);
+      }
+
+      /* The live call. It is the same array the editor holds — that is the point. */
+      .controls .code-block {
+        padding: 0.6rem 0.7rem;
+        font-size: 0.68rem;
+        line-height: 1.55;
+        border-radius: var(--radius-sm);
+        box-shadow: none;
+        white-space: pre;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <div class="example-container">
+        <div class="map-container">
+          <div id="map" data-testid="map-container"></div>
+
+          <div class="controls">
+            <h2>Color &amp; Breakpoints</h2>
+            <p>
+              An ordered list of 2–6 stops <em>is</em> the API. Click a province to
+              run it through <span class="paint-prop">fill-color</span>; click a
+              capital to run <span class="paint-prop">circle-color</span> and
+              <span class="paint-prop">circle-radius</span> together.
+            </p>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span>Presets</span>
+                <span class="value-display" data-testid="preset-name">—</span>
+              </div>
+              <div class="chip-row">
+                <button class="chip" type="button" data-testid="preset-sunset" data-preset="sunset" aria-pressed="false">sunset</button>
+                <button class="chip" type="button" data-testid="preset-ocean" data-preset="ocean" aria-pressed="false">ocean</button>
+                <button class="chip" type="button" data-testid="preset-traffic" data-preset="traffic" aria-pressed="false">traffic</button>
+                <button class="chip" type="button" data-testid="preset-pulse" data-preset="pulse" aria-pressed="false">pulse</button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span class="paint-prop">fill-color</span>
+                <span class="value-display" data-testid="color-count">4 stops</span>
+              </div>
+              <div class="ramp" data-testid="ramp-preview"></div>
+              <div class="stop-list" data-testid="color-stops"></div>
+              <div class="stops-foot">
+                <button class="add-btn" type="button" data-testid="color-add">+ stop</button>
+                <span class="stop-hint">2–6</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="group-label">
+                <span class="paint-prop">circle-radius</span>
+                <span class="value-display" data-testid="number-count">4 stops</span>
+              </div>
+              <div class="stop-list" data-testid="number-stops"></div>
+              <div class="stops-foot">
+                <button class="add-btn" type="button" data-testid="number-add">+ stop</button>
+                <span class="stop-hint">2–6 · px</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label>
+                <span>Duration</span>
+                <span class="value-display" data-testid="duration-value">2400ms</span>
+              </label>
+              <input
+                type="range"
+                data-testid="duration-slider"
+                id="duration"
+                min="400"
+                max="6000"
+                step="100"
+                value="2400"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="easing"><span>Easing</span></label>
+              <select id="easing" data-testid="easing-select">
+                <option value="linear">linear</option>
+                <option value="quad">quad</option>
+                <option value="cubic" selected>cubic</option>
+                <option value="sin">sin</option>
+                <option value="elastic">elastic</option>
+                <option value="bounce">bounce</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <div class="group-label"><span>The call</span></div>
+              <pre class="code-block" data-testid="paint-code"><code><span class="code-function">map</span>.<span class="code-function">transition</span>(f, {
+  <span class="code-property">paint</span>: {
+    <span class="code-string">"fill-color"</span>: <span data-testid="color-array" class="code-string">[]</span>,
+    <span class="code-string">"circle-radius"</span>: <span data-testid="number-array" class="code-number">[]</span>
+  }
+})</code></pre>
+            </div>
+
+            <div class="control-group">
+              <button class="btn ghost" type="button" data-testid="reset-btn">Reset to idle</button>
+            </div>
+
+            <div class="readout">
+              <div class="row"><span>animating</span><span data-testid="active-count">0</span></div>
+              <div class="row"><span>painted</span><span data-testid="painted-count">0</span></div>
+              <div class="row"><span>settled (onComplete)</span><span data-testid="settled-count">0</span></div>
+              <div class="row"><span>last</span><span data-testid="last-target">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      import MaplibreTransition from "../dist/index.esm.js";
+      import { canadianCapitalCities } from "./data/canadian-cities.js";
+      import { initialTheme } from "./scripts/theme.js";
+      import { mountChrome } from "./scripts/chrome.js";
+      import { loadBasemap, applyBasemap } from "./scripts/basemap.js";
+      import { frameMeter, mountFrameRail } from "./scripts/perf.js";
+
+      const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const PROVINCE_LAYER = "provinces-fill";
+      const CITY_LAYER = "cities-layer";
+
+      /* ---------------------------------------------------------------
+         Editor state — this array literally is the `paint` value.
+         --------------------------------------------------------------- */
+
+      const MIN_STOPS = 2;
+      const MAX_STOPS = 6;
+
+      // Default = the design system's cartographic ramp (theme-independent).
+      let colorStops = ["#26547c", "#2a9d8f", "#e9c46a", "#f4703a"];
+      let numberStops = [10, 30, 6, 18];
+
+      const PRESETS = {
+        sunset: {
+          colors: ["#ff512f", "#dd2476", "#f79d00", "#ff512f"],
+          radius: [10, 34, 12, 24],
+        },
+        ocean: {
+          colors: ["#2e3192", "#1bffff", "#11998e", "#38ef7d"],
+          radius: [10, 22, 14, 30],
+        },
+        traffic: {
+          colors: ["#2a9d8f", "#e9c46a", "#f4703a"],
+          radius: [10, 16, 26],
+        },
+        pulse: {
+          colors: ["#26547c", "#f4703a", "#26547c", "#f4703a", "#26547c"],
+          radius: [10, 34, 8, 30, 10],
+        },
+      };
+
+      /* ---------------------------------------------------------------
+         Theme-dependent idle colors, read from the CSS tokens.
+         --------------------------------------------------------------- */
+
+      const token = (name) =>
+        getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+      // Idle recedes (a surface tone over the basemap in both themes) so that the
+      // ramp is the only saturated thing on the map.
+      const idle = () => ({
+        province: token("--surface-2"),
+        city: token("--accent"),
+        outline: token("--ink-muted"),
+        stroke: token("--surface"),
+      });
+
+      /* ---------------------------------------------------------------
+         Chrome, map, frame rail
+         --------------------------------------------------------------- */
+
+      mountChrome({
+        title: "Color & Breakpoints",
+        kicker: "paint: { 'fill-color': [a, b, c, …] }",
+      });
+
+      const theme = initialTheme();
+
+      const map = new maplibregl.Map({
+        container: "map",
+        style: await loadBasemap(theme),
+        center: [-96, 60],
+        zoom: 2.6,
+        attributionControl: { compact: true },
+      });
+
+      MaplibreTransition.init(map);
+
+      const meter = frameMeter();
+      mountFrameRail(document.querySelector(".frame-rail"), meter);
+
+      /* ---------------------------------------------------------------
+         DOM
+         --------------------------------------------------------------- */
+
+      const $ = (id) => document.querySelector(`[data-testid="${id}"]`);
+
+      const colorStopsEl = $("color-stops");
+      const numberStopsEl = $("number-stops");
+      const colorAddBtn = $("color-add");
+      const numberAddBtn = $("number-add");
+      const colorCountEl = $("color-count");
+      const numberCountEl = $("number-count");
+      const rampEl = $("ramp-preview");
+      const colorArrayEl = $("color-array");
+      const numberArrayEl = $("number-array");
+      const durationSlider = $("duration-slider");
+      const durationValue = $("duration-value");
+      const easingSelect = $("easing-select");
+      const presetNameEl = $("preset-name");
+      const resetBtn = $("reset-btn");
+      const activeEl = $("active-count");
+      const paintedEl = $("painted-count");
+      const settledEl = $("settled-count");
+      const lastEl = $("last-target");
+
+      const duration = () => parseInt(durationSlider.value, 10);
+      const ease = () => easingSelect.value;
+
+      /* ---------------------------------------------------------------
+         The breakpoint editor. One implementation, two instances.
+         --------------------------------------------------------------- */
+
+      function stopEditor({ kind, container, addBtn, countEl, get, set }) {
+        function render() {
+          const stops = get();
+          container.textContent = "";
+
+          stops.forEach((value, i) => {
+            const row = document.createElement("div");
+            row.className = "stop-row";
+
+            const idx = document.createElement("span");
+            idx.className = "stop-idx";
+            idx.textContent = String(i);
+            row.appendChild(idx);
+
+            const input = document.createElement("input");
+            input.dataset.testid = `${kind}-stop-${i}`;
+            if (kind === "color") {
+              input.type = "color";
+              input.value = value;
+            } else {
+              input.type = "number";
+              input.min = "2";
+              input.max = "60";
+              input.step = "1";
+              input.value = String(value);
+            }
+            input.addEventListener("input", () => {
+              const next = get().slice();
+              next[i] =
+                kind === "color"
+                  ? input.value
+                  : Math.max(2, Math.min(60, Number(input.value) || 0));
+              set(next);
+              clearPreset();
+              sync();
+            });
+            row.appendChild(input);
+
+            if (kind === "color") {
+              const hex = document.createElement("span");
+              hex.className = "stop-hex";
+              hex.dataset.testid = `color-hex-${i}`;
+              hex.textContent = value;
+              row.appendChild(hex);
+            }
+
+            const up = document.createElement("button");
+            up.type = "button";
+            up.className = "icon-btn";
+            up.dataset.testid = `${kind}-up-${i}`;
+            up.title = "move up";
+            up.setAttribute("aria-label", `move stop ${i} up`);
+            up.textContent = "▲";
+            up.disabled = i === 0;
+            up.addEventListener("click", () => swap(i, i - 1));
+            row.appendChild(up);
+
+            const down = document.createElement("button");
+            down.type = "button";
+            down.className = "icon-btn";
+            down.dataset.testid = `${kind}-down-${i}`;
+            down.title = "move down";
+            down.setAttribute("aria-label", `move stop ${i} down`);
+            down.textContent = "▼";
+            down.disabled = i === stops.length - 1;
+            down.addEventListener("click", () => swap(i, i + 1));
+            row.appendChild(down);
+
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "icon-btn";
+            remove.dataset.testid = `${kind}-remove-${i}`;
+            remove.title = "remove";
+            remove.setAttribute("aria-label", `remove stop ${i}`);
+            remove.textContent = "✕";
+            remove.disabled = stops.length <= MIN_STOPS;
+            remove.addEventListener("click", () => {
+              const next = get().slice();
+              next.splice(i, 1);
+              set(next);
+              clearPreset();
+              sync();
+            });
+            row.appendChild(remove);
+
+            container.appendChild(row);
+          });
+
+          countEl.textContent = `${stops.length} stop${stops.length === 1 ? "" : "s"}`;
+          addBtn.disabled = stops.length >= MAX_STOPS;
+        }
+
+        function swap(a, b) {
+          const next = get().slice();
+          if (b < 0 || b >= next.length) return;
+          [next[a], next[b]] = [next[b], next[a]];
+          set(next);
+          clearPreset();
+          sync();
+        }
+
+        addBtn.addEventListener("click", () => {
+          const stops = get();
+          if (stops.length >= MAX_STOPS) return;
+          const next = stops.slice();
+          // A new stop repeats the last one, so adding never changes what you see
+          // until you change it.
+          next.push(stops[stops.length - 1]);
+          set(next);
+          clearPreset();
+          sync();
+        });
+
+        return { render };
+      }
+
+      const colorEditor = stopEditor({
+        kind: "color",
+        container: colorStopsEl,
+        addBtn: colorAddBtn,
+        countEl: colorCountEl,
+        get: () => colorStops,
+        set: (v) => {
+          colorStops = v;
+        },
+      });
+
+      const numberEditor = stopEditor({
+        kind: "number",
+        container: numberStopsEl,
+        addBtn: numberAddBtn,
+        countEl: numberCountEl,
+        get: () => numberStops,
+        set: (v) => {
+          numberStops = v;
+        },
+      });
+
+      let activePreset = null;
+
+      function clearPreset() {
+        if (!activePreset) return;
+        activePreset = null;
+        presetNameEl.textContent = "—";
+        document
+          .querySelectorAll("[data-preset]")
+          .forEach((c) => c.setAttribute("aria-pressed", "false"));
+      }
+
+      document.querySelectorAll("[data-preset]").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const p = PRESETS[chip.dataset.preset];
+          colorStops = p.colors.slice();
+          numberStops = p.radius.slice();
+          activePreset = chip.dataset.preset;
+          presetNameEl.textContent = activePreset;
+          document
+            .querySelectorAll("[data-preset]")
+            .forEach((c) =>
+              c.setAttribute("aria-pressed", String(c === chip))
+            );
+          sync();
+        });
+      });
+
+      /** Redraw both editors, the ramp, and the live call. */
+      function sync() {
+        colorEditor.render();
+        numberEditor.render();
+
+        // Even stops: exactly how the plugin distributes a piecewise scale.
+        const n = colorStops.length;
+        const parts = colorStops.map(
+          (c, i) => `${c} ${((i / (n - 1)) * 100).toFixed(2)}%`
+        );
+        rampEl.style.background = `linear-gradient(90deg, ${parts.join(", ")})`;
+
+        colorArrayEl.textContent = JSON.stringify(colorStops);
+        numberArrayEl.textContent = JSON.stringify(numberStops);
+      }
+
+      durationSlider.addEventListener("input", () => {
+        durationValue.textContent = `${duration()}ms`;
+      });
+
+      sync();
+
+      /* ---------------------------------------------------------------
+         Bookkeeping
+         --------------------------------------------------------------- */
+
+      /** Features the user has taken ownership of; the theme no longer recolors them. */
+      const painted = new Set();
+      /** Written by onComplete — the color a feature actually settled on. */
+      const settled = new Map();
+
+      const fkey = (source, id) => `${source}:${id}`;
+
+      const shown = { active: -1, painted: -1, settled: -1 };
+
+      function refresh() {
+        const active = map.transition.transitions.size;
+        if (active !== shown.active) {
+          shown.active = active;
+          activeEl.textContent = String(active);
+        }
+        if (painted.size !== shown.painted) {
+          shown.painted = painted.size;
+          paintedEl.textContent = String(painted.size);
+        }
+        if (settled.size !== shown.settled) {
+          shown.settled = settled.size;
+          settledEl.textContent = String(settled.size);
+        }
+      }
+
+      // The readout tracks the engine, so it is read on a frame, not on a timer.
+      // It piggybacks on the meter's rAF — no second loop, and no DOM write unless
+      // a number actually changed.
+      meter.onFrame(refresh);
+
+      /* ---------------------------------------------------------------
+         Feature descriptors (CONTRACTS §1: id / source / sourceLayer / layer.id)
+         --------------------------------------------------------------- */
+
+      const provinceFeature = (name) => ({
+        id: name,
+        source: "provinces",
+        sourceLayer: undefined,
+        layer: { id: PROVINCE_LAYER },
+      });
+
+      const cityFeature = (id) => ({
+        id,
+        source: "cities",
+        sourceLayer: undefined,
+        layer: { id: CITY_LAYER },
+      });
+
+      const provinceNames = [];
+      const provinceAnchors = new Map(); // name -> [lng, lat] (a point inside the polygon)
+      const cityAnchors = new Map(); // numeric id -> [lng, lat]
+
+      /* ---------------------------------------------------------------
+         Map
+         --------------------------------------------------------------- */
+
+      map.on("load", async () => {
+        const res = await fetch("./data/canada-provinces.json");
+        const provinces = await res.json();
+
+        for (const f of provinces.features) {
+          const name = f.properties.name;
+          provinceNames.push(name);
+          provinceAnchors.set(name, [f.properties.longitude, f.properties.latitude]);
+        }
+
+        canadianCapitalCities.features.forEach((f, i) => {
+          // generateId: true assigns ids by index in the features array.
+          cityAnchors.set(i, f.geometry.coordinates);
+        });
+
+        const c = idle();
+
+        map.addSource("provinces", {
+          type: "geojson",
+          data: provinces,
+          promoteId: "name", // string ids — no hyphens in any province name
+        });
+
+        map.addLayer({
+          id: PROVINCE_LAYER,
+          type: "fill",
+          source: "provinces",
+          paint: {
+            "fill-color": c.province, // owned by the plugin after the first transition
+            "fill-opacity": 0.6,
+            "fill-outline-color": c.outline,
+          },
+        });
+
+        map.addSource("cities", {
+          type: "geojson",
+          data: canadianCapitalCities,
+          generateId: true,
+        });
+
+        map.addLayer({
+          id: CITY_LAYER,
+          type: "circle",
+          source: "cities",
+          paint: {
+            "circle-radius": 10, // owned by the plugin after the first transition
+            "circle-color": c.city, // owned by the plugin after the first transition
+            "circle-opacity": 0.92,
+            "circle-stroke-width": 1.5,
+            "circle-stroke-color": c.stroke,
+          },
+        });
+
+        /* --- clicks ------------------------------------------------- */
+
+        map.on("click", PROVINCE_LAYER, (e) => {
+          // A capital sitting on the province takes precedence.
+          if (map.queryRenderedFeatures(e.point, { layers: [CITY_LAYER] }).length) return;
+          runProvince(e.features[0].id);
+        });
+
+        map.on("click", CITY_LAYER, (e) => {
+          runCity(e.features[0].id);
+        });
+
+        for (const layer of [PROVINCE_LAYER, CITY_LAYER]) {
+          map.on("mouseenter", layer, () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", layer, () => {
+            map.getCanvas().style.cursor = "";
+          });
+        }
+      });
+
+      /** Run the color ramp through a province. The array is the editor's array. */
+      function runProvince(name) {
+        const stops = colorStops.slice();
+        painted.add(fkey("provinces", name));
+        lastEl.textContent = name;
+
+        map.transition(provinceFeature(name), {
+          duration: duration(),
+          ease: ease(),
+          paint: { "fill-color": stops },
+          // onComplete persists the color the feature actually landed on. It never
+          // fires if a later click supersedes this one — that call persists instead.
+          onComplete: () => {
+            settled.set(fkey("provinces", name), stops[stops.length - 1]);
+            refresh();
+          },
+        });
+        refresh();
+      }
+
+      /** Two properties, two independent breakpoint arrays, one call. */
+      function runCity(id) {
+        const stops = colorStops.slice();
+        const radii = numberStops.slice();
+        painted.add(fkey("cities", id));
+        const name = canadianCapitalCities.features[id]?.properties?.name ?? `#${id}`;
+        lastEl.textContent = name;
+
+        map.transition(cityFeature(id), {
+          duration: duration(),
+          ease: ease(),
+          paint: {
+            "circle-color": stops,
+            "circle-radius": radii,
+          },
+          onComplete: () => {
+            settled.set(fkey("cities", id), stops[stops.length - 1]);
+            refresh();
+          },
+        });
+        refresh();
+      }
+
+      /** Everything back to the theme's idle color — via the plugin, using [null, target]. */
+      resetBtn.addEventListener("click", () => {
+        const c = idle();
+        const d = REDUCED ? 200 : 700;
+
+        provinceNames.forEach((name) => {
+          map.transition(provinceFeature(name), {
+            duration: d,
+            ease: "cubic",
+            paint: { "fill-color": [null, c.province] },
+          });
+        });
+
+        cityAnchors.forEach((_, id) => {
+          map.transition(cityFeature(id), {
+            duration: d,
+            ease: "cubic",
+            paint: {
+              "circle-color": [null, c.city],
+              "circle-radius": [null, 10],
+            },
+          });
+        });
+
+        painted.clear();
+        settled.clear();
+        lastEl.textContent = "—";
+        refresh();
+      });
+
+      /* ---------------------------------------------------------------
+         Theme swap. The basemap is diffed in place; the overlays are
+         re-colored with map.transition(), never setPaintProperty().
+         --------------------------------------------------------------- */
+
+      window.addEventListener("themechange", async (e) => {
+        const t = e.detail.theme;
+        await applyBasemap(map, t);
+        if (!map.getLayer(PROVINCE_LAYER)) return; // load hasn't run yet
+
+        const c = idle();
+
+        // Constants the plugin does not own — safe to set directly.
+        map.setPaintProperty(PROVINCE_LAYER, "fill-outline-color", c.outline);
+        map.setPaintProperty(CITY_LAYER, "circle-stroke-color", c.stroke);
+
+        const d = REDUCED ? 200 : 600;
+
+        // Only features the user has NOT painted follow the theme. A staggered
+        // sweep: `delay` defers the work, it does not busy-wait.
+        provinceNames.forEach((name, i) => {
+          if (painted.has(fkey("provinces", name))) return;
+          map.transition(provinceFeature(name), {
+            duration: d,
+            delay: REDUCED ? 0 : i * 20,
+            ease: "cubic",
+            paint: { "fill-color": [null, c.province] },
+          });
+        });
+
+        cityAnchors.forEach((_, id) => {
+          if (painted.has(fkey("cities", id))) return;
+          map.transition(cityFeature(id), {
+            duration: d,
+            delay: REDUCED ? 0 : id * 20,
+            ease: "cubic",
+            paint: { "circle-color": [null, c.city] },
+          });
+        });
+
+        refresh();
+      });
+
+      /* ---------------------------------------------------------------
+         Test hooks (CONTRACTS §4)
+         --------------------------------------------------------------- */
+
+      window.__testHooks = {
+        map,
+        getTransitionCount: () => map.transition.transitions.size,
+        waitForLoad: () =>
+          new Promise((resolve) => {
+            if (map.loaded()) resolve();
+            else map.once("load", resolve);
+          }),
+
+        // page extras
+        stops: () => ({ color: colorStops.slice(), number: numberStops.slice() }),
+        /** Canvas-relative position of a feature, for real (non-synthetic) clicks. */
+        anchor: (kind, id) => {
+          const lngLat =
+            kind === "province" ? provinceAnchors.get(id) : cityAnchors.get(id);
+          if (!lngLat) return null;
+          const p = map.project(lngLat);
+          return { x: p.x, y: p.y };
+        },
+        provinceNames: () => provinceNames.slice(),
+        featureState: (kind, id) =>
+          map.getFeatureState({
+            source: kind === "province" ? "provinces" : "cities",
+            id,
+          }),
+      };
+    </script>
+  </body>
+</html>
