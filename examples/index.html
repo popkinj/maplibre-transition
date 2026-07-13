@@ -475,9 +475,8 @@
           <p>
             Eight thousand points, three channels each — 24,000 animating
             properties on one rAF. Turn up the stagger and watch
-            <code class="mono">setFeatureState</code> calls per frame collapse by
-            an order of magnitude, because a delayed transition costs nothing
-            until it starts.
+            <code class="mono">setFeatureState</code> calls per frame fall roughly
+            fivefold, because a delayed transition costs nothing until it starts.
           </p>
           <code class="card-api">map.transition(f, { delay: i * 0.4 })</code>
         </a>
