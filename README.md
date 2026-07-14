@@ -203,10 +203,19 @@ features.forEach((f, i) => {
 });
 ```
 
-Measured on the `stress` demo with 2,000 features: firing flat costs 2,000
-`setFeatureState` calls per frame; the same batch spread over a 3-second stagger costs
-around 250 — roughly an eighth of the per-frame work, because only the features whose
-delay has elapsed are doing anything.
+Only the features whose delay has elapsed do any work, so the saving is largest exactly
+when it matters most — at the start, when a flat trigger would have every feature live at
+once. Two measurements, because they answer different questions:
+
+- **Peak.** Fire 2,000 features flat and every one is live from frame one: ~2,000
+  `setFeatureState` calls per frame. Spread the same batch over a 2.5-second stagger and,
+  in the first 500ms, only the ~20% whose delay has elapsed cost anything — about 250
+  calls per frame, roughly an eighth. (`tests/e2e/engine-perf.spec.ts`.)
+- **Sustained.** Averaged across the whole run the gap narrows, because features keep
+  coming online. On the `stress` demo, 8,000 features go from a median ~7,250 writes per
+  frame fired flat to ~1,550 at a 3-second stagger — about fivefold.
+
+The peak is the number that decides whether you drop frames, and staggering flattens it.
 
 A delayed transition still enters `map.transition.transitions` **synchronously**, so
 reading `.size` right after the call reflects it.
@@ -270,10 +279,13 @@ map.on('mouseleave', 'cities-layer', () => {
 });
 ```
 
-> **Note on `reverseScale()`**: earlier versions reversed the running scale in place.
-> They no longer do — interruption is just "start a fresh transition from the current
-> value". `reverseScale` remains exported for API compatibility, is deprecated, and is
-> not used internally. Do not build on it.
+> **`reverseScale()` was removed in 3.0.0.** Earlier versions reversed the running scale
+> in place; they no longer do — interruption is just "start a fresh transition from the
+> current value". Since the scheduler rewrite, samplers have been plain `(t) => value`
+> functions with no `.domain()` / `.range()`, so `reverseScale` threw a `TypeError` on
+> every sampler this plugin produces. It could not have had a working caller. Removing it
+> also dropped `d3-scale` (and the `d3-array` / `d3-format` it pulled in) from the bundle,
+> which is now **41% smaller**.
 
 ### Best Practices for Hover Effects
 
@@ -535,8 +547,10 @@ feature animating radius, colour, and opacity together costs a single write.
 
 **`delay` genuinely defers work.** A delayed transition writes its start value once,
 synchronously, then costs nothing per frame until it begins. So staggering is *cheaper*
-than firing flat — 2,000 features spread over a 3-second stagger do roughly an eighth of
-the per-frame work of the same 2,000 fired at once.
+than firing flat: in the first 500ms of a 2.5-second stagger, 2,000 features do roughly an
+eighth of the per-frame work of the same 2,000 fired at once. Averaged over the whole run
+the saving is smaller — about fivefold on the `stress` demo — but the peak is what makes
+you drop frames. See [Delay and Staggering](#delay-and-staggering).
 
 Measured on a mid-range GPU with the `stress` demo: 5,000 features × 3 animated
 properties (15,000 concurrent property transitions) holds 60fps, and the synchronous cost

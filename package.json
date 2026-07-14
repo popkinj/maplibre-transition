@@ -14,7 +14,6 @@
   "scripts": {
     "build": "rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.config.mjs -w",
-    "serve": "vite",
     "serve:examples": "vite --config vite.examples.config.js",
     "build:examples": "npm run build && vite build --config vite.examples.config.js",
     "deploy:examples": "npm run build:examples && gh-pages -d examples-dist",
@@ -62,7 +61,6 @@
     "@types/d3-color": "^3.1.3",
     "@types/d3-ease": "^3.0.2",
     "@types/d3-interpolate": "^3.0.4",
-    "@types/d3-scale": "^4.0.9",
     "@vitest/coverage-v8": "^4.0.15",
     "gh-pages": "^6.3.0",
     "jsdom": "^27.2.0",
@@ -76,7 +74,6 @@
   "dependencies": {
     "d3-color": "^3.1.0",
     "d3-ease": "^3.0.1",
-    "d3-interpolate": "^3.0.1",
-    "d3-scale": "^4.0.2"
+    "d3-interpolate": "^3.0.1"
   }
 }

@@ -80,7 +80,7 @@ The entire plugin is implemented in a single TypeScript file (`src/index.ts`) th
 
 1. **Extends MapLibre Map interface** - Adds `map.transition()` and deprecated `map.T()` methods via TypeScript module augmentation
 2. **Feature state-based animations** - Utilizes MapLibre's `setFeatureState()` to update feature properties, modifying layer paint properties to use `["coalesce", ["feature-state", ...], ...]` expressions
-3. **Uses d3 for interpolation** - d3-ease for easing, d3-interpolate/d3-color for colors. (d3-scale is no longer in the hot path; the numeric path is a direct piecewise lerp.)
+3. **Uses d3 for interpolation** - d3-ease for easing, d3-interpolate/d3-color for colors. Those are the *only* three runtime deps. `d3-scale` was removed entirely in 3.0.0 (it was pulled in solely by the dead `reverseScale`, and dragged d3-array + d3-format along with it); the numeric path is a direct piecewise lerp.
 
 ### The scheduler (important)
 
@@ -95,8 +95,15 @@ reintroduce a per-feature rAF.
   channel. A feature with three animating properties still costs one write.
 - **`delay` genuinely defers.** The start value is written once, synchronously; the
   transition then sits in a `pending` list accruing zero per-frame cost until its
-  start time arrives. Staggering a mass trigger is *cheaper* than firing it flat
-  (measured: 2,000 writes/frame flat vs ~250 across a 3s stagger).
+  start time arrives. Staggering a mass trigger is *cheaper* than firing it flat.
+  **Two numbers, don't conflate them:** *peak* — in the first 500ms of a 2.5s stagger,
+  2,000 features cost ~250 writes/frame vs ~2,000 fired flat (~8x; that is what
+  `engine-perf.spec.ts` measures, and only ~20% have started in that window).
+  *Sustained* — averaged over a whole run, the `stress` demo's 8,000 features go from a
+  median ~7,250 writes/frame flat to ~1,550 at a 3s stagger (~5x). The CHANGELOG's
+  `2333 → 246` row is a **third** thing again: old engine vs new, i.e. the deferral bug
+  fix, not something reproducible today. Quote the sustained figure when describing the
+  demo; quote peak when describing the guarantee.
 - **Callbacks belong to the call, not the feature.** Each `map.transition()` call
   creates an internal *group* holding its `options`, a `remaining` count, and a
   `cancelled` flag. `onComplete` fires once, when every property of *that call*
@@ -119,7 +126,7 @@ reintroduce a per-feature rAF.
 - **Multi-breakpoint support** - Arrays with 3+ values create piecewise interpolations (e.g., `[0, 10, 5, 15]` transitions through all values)
 - **`[null, target]`** - A `null` start resolves to the feature's current state, falling back to the layer's paint fallback. **Always use it to re-trigger mid-flight** — an explicit start (`[0, 60]` on a feature currently at 45) produces a three-stop scale that visibly dives to 0 first.
 - **Paint ownership** - Once the plugin has transitioned a `(layer, paint-property)` pair, that property is a `coalesce` expression it owns. **Never call `setPaintProperty` on it** — animate it with `map.transition()`. This is what makes the theme swap safe.
-- **Transition reversal** - `reverseScale()` is deprecated and retained only for API compatibility; interruption is now handled by starting a fresh transition from the current feature-state value.
+- **Transition reversal** - `reverseScale()` was **removed in 3.0.0**. It called `.domain()` on the sampler it was handed, and since the scheduler rewrite samplers are plain `(t) => value` functions — so it threw on every sampler the plugin creates and could not have had a working caller. It was also the sole importer of `d3-scale`; deleting it dropped d3-scale/d3-array/d3-format from the bundle (26.7KB → 15.9KB). Interruption is handled by starting a fresh transition from the current feature-state value.
 
 ### Build Configuration
 
@@ -130,7 +137,11 @@ reintroduce a per-feature rAF.
 ### Demo Pages (examples/)
 
 Six pages, deployed to GitHub Pages. Each teaches one idea.
-- `index.html` - Landing page. Live map hero: a 1,012-point field running a delayed wavefront.
+- `index.html` - Landing page. Live map hero: a 1,012-point field running a delayed
+  wavefront. It **autoplays exactly twice and then stops**, handing control to the
+  "Run the wave" button (which is disabled while a sweep runs). It does *not* loop — a
+  theme swap mid-wave resumes the remaining sweeps rather than re-arming forever. Pinned
+  by `landing-page.spec.ts`.
 - `playground.html` - Every option on the call, printing the `paint` object it runs. All 9 easings raced.
 - `color.html` - Breakpoint editor whose UI *is* the array you pass. Colors + numbers, 2–6 stops.
 - `hover-effects.html` - `delay` as a hover-dwell threshold; leaving supersedes the pending transition.
@@ -180,16 +191,6 @@ Verified in `tests/e2e/theme.spec.ts`, including a swap with 500 buildings mid-r
 (Note: the ~93 basemap layers *are* reordered on a swap — Positron and Dark Matter order
 `waterway_label` differently — which is harmless, since basemap layers carry no state of
 ours. Don't be surprised by that churn in a profiler.)
-
-### Development Examples (dev/)
-
-The `dev/` directory contains simpler example HTML/JS files for development:
-- Simple transitions (`simple.html`)
-- Hover-triggered transitions (`hover.html`)
-- Point animations (`point-animation.html`)
-- Chained transitions (`point-animation-chained.html`)
-- Color animations (`colour-animation.html`)
-- Color cycling with multiple breakpoints (`colour-cycle.html`)
 
 ## Important Implementation Details
 

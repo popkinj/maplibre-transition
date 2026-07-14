@@ -1,5 +1,4 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
-import { scaleLinear } from "d3-scale";
 import * as d3Ease from "d3-ease";
 import { interpolateRgb } from "d3-interpolate";
 import { rgb } from "d3-color";
@@ -63,13 +62,11 @@ declare module "maplibre-gl" {
       (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
       listLayerTransitions: (layerId: string) => any[];
-      reverseScale: (scale: any, currentTime: number, easeFn: any) => any;
     };
     transition: {
       (feature: any, options?: TransitionOptions): void;
       transitions: Set<any>;
       listLayerTransitions: (layerId: string) => any[];
-      reverseScale: (scale: any, currentTime: number, easeFn: any) => any;
     };
   }
 }
@@ -424,43 +421,6 @@ export function init(map: MapLibreMap): void {
   const sharedProperties = {
     /** Set of all active transitions: one entry per feature. */
     transitions,
-
-    /**
-     * Reverses a d3 scale transition by creating a new scale that transitions back to the original value.
-     *
-     * @deprecated No longer used internally, and no longer compatible with the
-     * samplers this plugin creates (they no longer carry d3 `.domain()`/`.range()`
-     * methods). Interruptions now start a fresh transition from the property's
-     * current feature-state value to the new target, which handles colors and
-     * multi-breakpoint scales correctly. Retained only for API/type compatibility
-     * with callers passing their own d3 scales. It will be removed in a future
-     * major version.
-     *
-     * @param {any} scale - The original d3 scale to reverse
-     * @param {number} currentTime - The current timestamp
-     * @param {any} easeFn - The easing function to use for the reverse transition
-     * @returns {any} A new scale that will transition back to the original value
-     */
-    reverseScale: (scale: any, currentTime: number, easeFn: any) => {
-      const [startTime] = scale.domain();
-      const [startValue] = scale.range();
-
-      const elapsedTime = currentTime - startTime;
-      const currentValue = scale(currentTime);
-
-      const newScale = scaleLinear()
-        .domain([currentTime, currentTime + elapsedTime])
-        .range([currentValue, startValue]);
-
-      const wrappedScale = (t: number) => {
-        const progress = (t - currentTime) / elapsedTime;
-        const easedProgress = easeFn(clamp01(progress));
-        return currentValue + easedProgress * (startValue - currentValue);
-      };
-
-      Object.assign(wrappedScale, newScale);
-      return wrappedScale;
-    },
 
     /**
      * Lists all active transitions for a specific layer.

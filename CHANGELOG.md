@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-07-14
+
+### Removed (breaking)
+
+- **`reverseScale()` is gone, and the bundle is 41% smaller** (26,706 → 15,883 bytes
+  minified ESM). It was deprecated in 2.0.0, but it was worse than deprecated: its first
+  statement was `scale.domain()`, and since the scheduler rewrite the samplers this plugin
+  produces are plain `(t) => value` closures with no `.domain()` / `.range()`. It threw
+  `TypeError: scale.domain is not a function` on **every sampler the plugin creates**, so
+  it could not have had a working caller. It was also the only importer of `d3-scale` —
+  which quietly dragged `d3-array` and `d3-format` (currency formatting, tick generation)
+  into every consumer's bundle.
+
+  Interruption is, and since 2.0.0 has been, "start a fresh transition from the current
+  feature-state value" — see [Interrupting](README.md#interrupting-a-transition). If you
+  have a `map.transition.reverseScale(...)` call in your source, delete it: it was
+  throwing.
+
+  This is a major bump because an exported, type-declared method was removed, even though
+  no working caller was possible. The version number should say what happened.
+
+- `d3-scale` dropped from `dependencies`, `@types/d3-scale` from `devDependencies`. The
+  only remaining runtime deps are `d3-color`, `d3-ease` and `d3-interpolate`.
+
+- **The `dev/` directory is gone**, along with `vite.config.js` and the `npm run serve`
+  script that existed solely to serve it. Its six pages predated the 2.0 rewrite and
+  taught patterns the README now explicitly warns against (explicit `[start, target]`
+  values instead of `[null, target]`; hand-rolled `mouseleave` bookkeeping that
+  supersession makes unnecessary). One of them, `colour-cycle.js`, passed
+  `ease: "ease-in-out"`, which is not a valid easing name and silently fell back to
+  linear. `examples/` covers everything it did, correctly.
+
 ## [2.0.0] - 2026-07-13
 
 ### A note on versioning
